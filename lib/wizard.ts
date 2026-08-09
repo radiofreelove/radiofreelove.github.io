@@ -457,11 +457,11 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       id: "or-disclosures",
       eyebrow: "Questions the Oregon form requires",
       title: "Tell us whether any of these apply",
-      description: "The court calls these public-interest disclosures. Check every statement that applies to you.",
+      description: "The court asks these questions to identify other legal duties or safety issues. On the official form, they are called public-interest disclosures.",
       fields: [
         {
           key: "orChildSupport",
-          label: "Do you owe child-support arrears or have a current support order?",
+          label: "Do you have unpaid past-due child support (arrears), or a current support order?",
           type: "radio",
           required: true,
           options: YES_NO,
@@ -517,7 +517,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
               },
               {
                 key: "orTreatmentAttestation" as const,
-                label: "Can you truthfully attest to the treatment statement printed on the Oregon form?",
+                label: "Can you truthfully agree to (attest to) the treatment statement printed on the Oregon form?",
                 type: "radio" as const,
                 required: true,
                 options: YES_NO,
@@ -561,7 +561,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
         },
         {
           key: "waDocJurisdiction",
-          label: "Are you under Washington Department of Corrections jurisdiction?",
+          label: "Does the Washington Department of Corrections currently have legal authority over your case (jurisdiction)?",
           type: "radio",
           required: true,
           options: YES_NO,
@@ -607,14 +607,14 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
           : []),
         {
           key: "waNoDetriment",
-          label: "Is the requested change not detrimental to anyone else’s interests?",
+          label: "Would the requested change avoid harming anyone else’s legal interests?",
           type: "radio",
           required: true,
           options: YES_NO,
         },
         {
           key: "waNoOpenProtectionOrder",
-          label: "Are you not a defendant or respondent in an open or pending protection-order case?",
+          label: "Is it true that no open or pending protection-order case names you as the person responding to the case?",
           type: "radio",
           required: true,
           options: YES_NO,
@@ -706,7 +706,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
         },
         {
           key: "utSexOffender",
-          label: "Are you on the Sex and Kidnap Offender Registry?",
+          label: "Are you listed on Utah’s Sex and Kidnap Offender Registry?",
           type: "radio",
           required: true,
           options: YES_NO,
@@ -748,7 +748,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
               },
               {
                 key: "utDistress" as const,
-                label: "Do you experience clinically significant distress or impairment from the current designation?",
+                label: "Does the current designation cause serious distress or make daily life harder (clinically significant distress or impairment)?",
                 type: "radio" as const,
                 required: true,
                 options: YES_NO,

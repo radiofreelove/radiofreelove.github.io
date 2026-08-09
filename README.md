@@ -24,11 +24,15 @@ The release was reviewed against primary court sources on August 7, 2026. Oregon
 - Keeps fee applications and confidential financial statements in separate downloads from the main petition.
 - Supports offline questionnaire use and PDF generation after installation.
 - Includes Android maskable icons, an install prompt, Web Share where supported, iOS home-screen metadata/instructions, safe-area spacing, responsive input modes, 44-pixel touch targets, dark mode, and larger text.
+- Uses task-first navigation, five stable progress chapters, linked error summaries, a dismissible plain-language Peeka guide, verified court cards or official-directory fallbacks, grouped HTML answer review, and a filing checklist.
+- Targets WCAG 2.2 Level AA for the website without claiming certified conformance. Generated-PDF accessibility remains a separate gate; see the [website accessibility test matrix](docs/accessibility-test-matrix.md).
 
 ## Architecture
 
 - `lib/jurisdictions.ts` — state adapters, counties, official authorities, review dates, form revisions, and SHA-256 values.
 - `lib/wizard.ts` — dynamic questions, validation, and conservative routing blockers.
+- `lib/accessibility.ts` — stable progress chapters, review grouping, and plain-language glossary.
+- `lib/court-directory.ts` — verified exact court details for supported selections; all other locations fall back to official directories.
 - `lib/pdf/generator.ts` — local official-PDF filling, overlay placement, merging, integrity checks, and separate waiver-file generation.
 - `app/components/NavigatorApp.tsx` — PWA UI, local draft controls, install behavior, and generation flow.
 - `public/forms/` — immutable, revisioned copies of official templates.
@@ -73,9 +77,10 @@ official PDF.
 npm test
 npm run lint
 npm run typecheck
+npm run verify:protected
 ```
 
-`npm test` verifies every registered PDF hash, builds the deployable worker, checks offline precaching, renders the application shell, and exercises the major state-routing branches. Before releasing a changed PDF adapter, also generate representative packets and visually inspect every rendered page as described in [the form-update runbook](docs/form-update-runbook.md).
+`npm test` verifies the locked generator and every court PDF byte-for-byte, verifies the form registry, builds the deployable worker, checks offline precaching, checks accessibility structure and contrast tokens, renders the application shell, and exercises the major state-routing branches. Before releasing a changed PDF adapter, also generate representative packets and visually inspect every rendered page as described in [the form-update runbook](docs/form-update-runbook.md).
 
 The maintenance-only `npm run qa:pdfs -- <output-directory>` command creates representative PDFs for every generated goal plus the Oregon and King County waiver flows.
 

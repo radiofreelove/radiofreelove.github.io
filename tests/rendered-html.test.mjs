@@ -12,16 +12,43 @@ test("renders development preview metadata", async () => {
   );
   assert.match(html, developmentPreviewMeta);
   assert.match(html, /Identity Navigator/);
-  assert.match(html, /One clear question at a time/);
+  assert.match(html, /Start with what you need to do/);
   assert.match(html, /Prepare my forms/);
   assert.match(html, /Find my court/);
-  assert.match(html, /Peeka’s tip/);
-  assert.match(html, /Your filing steps/);
-  assert.match(html, /Common court words/);
-  assert.match(html, /role="progressbar"/);
+  assert.match(html, /I’m Peeka/);
+  assert.match(html, /Understand filing steps/);
+  assert.match(html, /Get help with court words/);
+  assert.match(html, /aria-controls="task-menu"/);
+  assert.match(html, /aria-expanded="false"/);
   assert.match(html, /aria-label="Install this app"/);
   assert.match(html, /manifest\.webmanifest/);
   assert.match(html, /Private by default/);
+  assert.match(html, /What to gather/);
+  assert.match(html, /It does not sign, upload, send, or file anything/);
+});
+
+test("ships the complete web accessibility architecture", async () => {
+  const source = await readFile(
+    new URL("../app/components/NavigatorApp.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /What this means/);
+  assert.match(source, /Why we ask/);
+  assert.match(source, /Where to find it/);
+  assert.match(source, /What happens next/);
+  assert.match(source, /Accessible answer review/);
+  assert.match(source, /Your filing checklist/);
+  assert.match(source, /aria-live="polite"/);
+  assert.match(source, /role="progressbar"/);
+  assert.match(source, /Accessibility statement/);
+  assert.match(source, /not a claim of certified conformance/);
+  assert.match(css, /@media \(forced-colors: active\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
 test("ships Peeka as a black cat with green eyes", async () => {
