@@ -6,12 +6,23 @@ import {
   getJurisdiction,
   isReviewOverdue,
 } from "../../lib/jurisdictions";
+import {
+  COURT_GLOSSARY,
+  FLOW_CHAPTERS,
+  chapterById,
+  chapterForStep,
+  getLocalProgress,
+  groupReviewSteps,
+  type FlowChapterId,
+} from "../../lib/accessibility";
+import { getKnownCourtDetails } from "../../lib/court-directory";
 import { BASE_PATH } from "../../lib/base-path";
 import type {
   AnswerKey,
   GenerationResult,
   NavigatorAnswers,
   WizardField,
+  WizardStep,
 } from "../../lib/types";
 import {
   getBlockingOutcome,
@@ -24,13 +35,22 @@ import {
 const DRAFT_KEY = "identity-navigator-draft-v2";
 const THEME_KEY = "identity-navigator-theme";
 const TEXT_KEY = "identity-navigator-text-size";
+const PEEKA_KEY = "identity-navigator-peeka-visible";
+
+type AppView =
+  | "start"
+  | "interview"
+  | "court"
+  | "filing"
+  | "glossary"
+  | "accessibility";
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-function Icon({ name }: { name: "lock" | "arrow" | "download" | "share" | "external" | "check" | "shield" | "moon" | "sun" | "install" | "trash" }) {
+function Icon({ name }: { name: "lock" | "arrow" | "download" | "share" | "external" | "check" | "shield" | "moon" | "sun" | "install" | "trash" | "menu" | "close" }) {
   const paths = {
     lock: <><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
     arrow: <><path d="M5 12h14"/><path d="m14 7 5 5-5 5"/></>,
@@ -43,6 +63,8 @@ function Icon({ name }: { name: "lock" | "arrow" | "download" | "share" | "exter
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></>,
     install: <><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 18v2h14v-2"/></>,
     trash: <><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></>,
+    menu: <><path d="M4 7h16M4 12h16M4 17h16"/></>,
+    close: <><path d="m6 6 12 12M18 6 6 18"/></>,
   };
   return (
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -68,36 +90,164 @@ function Peeka({ mood = "calm" }: { mood?: "calm" | "happy" }) {
   );
 }
 
-const PEEKA_TIPS: Record<string, string> = {
-  state: "Start with where you live now. That usually decides which court and forms you need.",
-  county: "Your county helps choose the court name printed on the form. You can open the official court directory above at any time.",
-  adult: "These questions protect you from being sent to the wrong set of forms.",
-  goal: "Choose the change you want the judge to approve. I’ll only show options supported by the official forms.",
-  "fee-help": "A fee waiver asks the court to reduce or excuse a filing fee. The court makes the final decision.",
-  review: "Read every answer once more before creating the PDFs. You’ll still need to sign and file them yourself.",
+const STEP_HELP: Readonly<Record<string, { why: string; where: string; next: string }>> = {
+  state: {
+    why: "The state where you live usually controls which court process applies.",
+    where: "Use your current home address, even if your birth record is from another state.",
+    next: "Next, you’ll choose your county so the tool can check local court routing.",
+  },
+  county: {
+    why: "Court location and local filing rules can change from one county to another.",
+    where: "Use the county for your current home. If you are unsure, check your county government website or the official court directory.",
+    next: "The court card will show a verified location when one is known, or an official directory when it is not.",
+  },
+  adult: {
+    why: "This tool only contains adult court forms. A child’s case uses a different process.",
+    where: "Use your age on the day you expect to file.",
+    next: "If these forms do not fit, the tool will stop and point you to an official court source.",
+  },
+  goal: {
+    why: "The requested change decides which questions and official forms are needed.",
+    where: "Choose the result you want the judge to approve, not a change you have already made with another agency.",
+    next: "You’ll only see paths supported by the official forms in this tool.",
+  },
+  "wa-route": {
+    why: "King County has a public District Court route and a separate qualifying confidential Superior Court route.",
+    where: "Think about whether you need the standard public filing or may qualify for the protected court process.",
+    next: "A confidential-route answer will take you to King County’s official instructions instead of creating the wrong PDF.",
+  },
+  "fee-help": {
+    why: "Courts may excuse, reduce, or delay fees when payment would make basic needs hard to cover.",
+    where: "Consider housing, food, utilities, medical care, transportation, and people you support.",
+    next: "Financial forms stay separate, and financial answers are never saved in a draft.",
+  },
+  "current-name": {
+    why: "The court forms need the same current legal name used in your records.",
+    where: "Copy the spelling and spacing from a current government ID or existing court record.",
+    next: "If you are requesting a new name, you’ll enter it separately on the next screen.",
+  },
+  "new-name": {
+    why: "The signed order needs the exact name you want agencies to recognize.",
+    where: "Check every letter, space, hyphen, and suffix before continuing.",
+    next: "You can review and edit the spelling again before any PDF is created.",
+  },
+  contact: {
+    why: "Court staff may use this information to send notices or contact you about the case.",
+    where: "Use a safe mailing address, phone number, and email account you can check regularly.",
+    next: "These details will appear only where the official forms request them.",
+  },
+  birth: {
+    why: "Some court forms ask for details that identify the birth record connected to the request.",
+    where: "A certified birth certificate is the best place to check the city, county, and state.",
+    next: "Keep the record nearby for the final answer review.",
+  },
+  review: {
+    why: "A careful review catches spelling, date, address, and selection errors before they reach a clerk.",
+    where: "Compare the HTML review with your ID, birth record, and other source documents.",
+    next: "Creating a PDF does not sign or file it. You will receive a separate filing checklist.",
+  },
 };
 
-function TaskNavigation() {
+const STATE_HELP: Readonly<Record<string, string>> = {
+  WA: "Washington generation is limited to the King County District Court public individual name-change route.",
+  OR: "Oregon uses a statewide adult packet for name change, legal-sex change, or both.",
+  ID: "Idaho generation is limited to the statewide adult name-change packet and includes publication paperwork.",
+  UT: "Utah uses a district-court packet for an adult name change, sex-designation change, or both.",
+};
+
+function TaskNavigation({
+  activeView,
+  onNavigate,
+}: {
+  activeView: AppView;
+  onNavigate: (view: AppView) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
+
+  function choose(view: AppView) {
+    setOpen(false);
+    onNavigate(view);
+  }
+
   return (
     <nav className="task-nav" aria-label="Main tasks">
-      <div className="task-nav-inner">
-        <a href="#main-content">Prepare my forms</a>
-        <a href="#court-information">Find my court</a>
-        <a href="#filing-steps">Filing steps</a>
-        <a href="#court-words">Help with court words</a>
+      <div className="task-nav-shell">
+        <button
+          ref={menuButtonRef}
+          className="menu-button"
+          type="button"
+          aria-expanded={open}
+          aria-controls="task-menu"
+          onClick={() => setOpen((current) => !current)}
+        >
+          <Icon name={open ? "close" : "menu"} />Menu
+        </button>
+        <div className="task-nav-inner" id="task-menu" data-open={open}>
+          <button type="button" aria-current={activeView === "interview" ? "page" : undefined} onClick={() => choose("interview")}>Prepare my forms</button>
+          <button type="button" aria-current={activeView === "court" ? "page" : undefined} onClick={() => choose("court")}>Find my court</button>
+          <button type="button" aria-current={activeView === "filing" ? "page" : undefined} onClick={() => choose("filing")}>Filing steps</button>
+          <button type="button" aria-current={activeView === "glossary" ? "page" : undefined} onClick={() => choose("glossary")}>Help with court words</button>
+        </div>
       </div>
     </nav>
   );
 }
 
-function PeekaGuide({ stepId }: { stepId: string }) {
-  const tip = PEEKA_TIPS[stepId] ?? "I’ll explain what each question means and keep official court language in context.";
+function PeekaGuide({
+  step,
+  answers,
+  onDismiss,
+}: {
+  step: WizardStep;
+  answers: NavigatorAnswers;
+  onDismiss: () => void;
+}) {
+  const jurisdiction = getJurisdiction(answers.residenceState);
+  const help = STEP_HELP[step.id] ?? {
+    why: "This answer is requested by the official court form for the path you selected.",
+    where: "Use a reliable record when one is available. Do not guess at a date, amount, or case detail.",
+    next: "You can review and edit this answer before creating any PDF.",
+  };
   return (
     <aside className="peeka-guide" aria-label="Tip from Peeka, your guide">
-      <Peeka mood={stepId === "review" ? "happy" : "calm"} />
-      <div>
-        <p className="peeka-label">Peeka’s tip</p>
-        <p>{tip}</p>
+      <div className="peeka-guide-heading">
+        <Peeka mood={step.id === "review" ? "happy" : "calm"} />
+        <div>
+          <p className="peeka-label">Peeka, your guide</p>
+          <p>I explain court words and help you find where to file.</p>
+        </div>
+        <button className="peeka-dismiss" type="button" onClick={onDismiss} aria-label="Hide Peeka’s help"><Icon name="close" /></button>
+      </div>
+      <div className="peeka-help-list">
+        <details open>
+          <summary>What this means</summary>
+          <p>{step.description ?? `This screen asks about ${step.title.toLowerCase()}.`}</p>
+        </details>
+        <details>
+          <summary>Why we ask</summary>
+          <p>{help.why}</p>
+        </details>
+        <details>
+          <summary>Where to find it</summary>
+          <p>{help.where}</p>
+        </details>
+        <details>
+          <summary>What happens next</summary>
+          <p>{help.next}</p>
+          {jurisdiction ? <p>{STATE_HELP[jurisdiction.code]} Sources checked {formatReviewDate(jurisdiction.verifiedOn)}.</p> : null}
+        </details>
       </div>
     </aside>
   );
@@ -105,6 +255,7 @@ function PeekaGuide({ stepId }: { stepId: string }) {
 
 function CourtFinder({ answers }: { answers: NavigatorAnswers }) {
   const jurisdiction = getJurisdiction(answers.residenceState);
+  const knownCourt = getKnownCourtDetails(answers);
   const directoryAuthority = jurisdiction?.authorities.find((authority) =>
     /directory|locations|local offices/i.test(authority.label),
   );
@@ -123,19 +274,36 @@ function CourtFinder({ answers }: { answers: NavigatorAnswers }) {
       <div className="court-finder-copy">
         <p className="court-finder-kicker">Official court information</p>
         <h2 id="court-finder-title">Find your courthouse or clerk’s office</h2>
-        {jurisdiction ? (
+        {knownCourt ? (
+          <p>These details come from the court’s official location page. Confirm filing instructions and hours before you go.</p>
+        ) : jurisdiction && answers.county ? (
           <p>
-            {answers.county ? `You chose ${answers.county} County, ${jurisdiction.name}. ` : ""}
-            Confirm the address, office hours, filing method, and current fee with the court before you go.
+            Exact courthouse details are not stored for {answers.county} County, {jurisdiction.name}. Use the official directory below; the site will not guess at an address.
           </p>
+        ) : jurisdiction ? (
+          <p>Choose your county to narrow the official court route.</p>
         ) : (
           <p>Choose your state in the form below. The official court-directory link will appear here.</p>
         )}
       </div>
+      {knownCourt ? (
+        <div className="court-details">
+          <h3>{knownCourt.name}</h3>
+          <address>{knownCourt.address.map((line) => <span key={line}>{line}</span>)}</address>
+          <p><strong>Phone:</strong> <a href={`tel:${knownCourt.phone.replace(/[^\d+]/g, "")}`}>{knownCourt.phone}</a></p>
+          <p><strong>Source checked:</strong> {formatReviewDate(knownCourt.checkedOn)}</p>
+          {knownCourt.note ? <p className="court-warning"><strong>Check before filing:</strong> {knownCourt.note}</p> : null}
+        </div>
+      ) : null}
       {jurisdiction ? (
         <div className="court-finder-actions">
+          {knownCourt ? (
+            <a className="court-link court-link-primary" href={knownCourt.officialUrl} target="_blank" rel="noreferrer">
+              Official location page<Icon name="external" /><span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          ) : null}
           {directoryAuthority ? (
-            <a className="court-link court-link-primary" href={directoryAuthority.url} target="_blank" rel="noreferrer">
+            <a className={`court-link ${knownCourt ? "" : "court-link-primary"}`} href={directoryAuthority.url} target="_blank" rel="noreferrer">
               {directoryAuthority.label}<Icon name="external" /><span className="sr-only"> (opens in a new tab)</span>
             </a>
           ) : null}
@@ -152,30 +320,212 @@ function CourtFinder({ answers }: { answers: NavigatorAnswers }) {
   );
 }
 
-function SupportSections() {
+function StartScreen({
+  resumed,
+  peekaVisible,
+  onNavigate,
+  onDismissPeeka,
+  onShowPeeka,
+}: {
+  resumed: boolean;
+  peekaVisible: boolean;
+  onNavigate: (view: AppView) => void;
+  onDismissPeeka: () => void;
+  onShowPeeka: () => void;
+}) {
   return (
-    <section className="support-hub" aria-label="Filing help and court terms">
-      <article className="support-card" id="filing-steps" aria-labelledby="filing-steps-title">
-        <p className="eyebrow">After the PDFs are created</p>
-        <h2 id="filing-steps-title">Your filing steps</h2>
-        <ol className="filing-steps-list">
-          <li><span>1</span><p><strong>Review every page.</strong> Compare names, dates, addresses, and checked boxes with your records.</p></li>
-          <li><span>2</span><p><strong>Finish only your parts.</strong> Add required signatures, dates, and attachments. Leave judge and clerk lines blank.</p></li>
-          <li><span>3</span><p><strong>Check with the clerk.</strong> Confirm the filing location, method, fee, notice, and hearing requirements.</p></li>
-          <li><span>4</span><p><strong>File and keep copies.</strong> The site creates PDFs; it does not send them to the court.</p></li>
-        </ol>
-      </article>
+    <section className="start-screen" aria-labelledby="start-title">
+      <div className="start-hero">
+        <div>
+          <p className="eyebrow">Name and identity court forms</p>
+          <h1 id="start-title" data-page-heading tabIndex={-1}>Start with what you need to do.</h1>
+          <p>Prepare supported adult court forms, find the official court directory, understand filing steps, or look up a court word.</p>
+        </div>
+        {peekaVisible ? (
+          <aside className="peeka-intro" aria-label="Introduction from Peeka">
+            <Peeka />
+            <div>
+              <p className="peeka-label">Meet Peeka</p>
+              <p><strong>I’m Peeka.</strong> I explain court words and help you find where to file.</p>
+            </div>
+            <button className="peeka-dismiss" type="button" onClick={onDismissPeeka} aria-label="Hide Peeka’s help"><Icon name="close" /></button>
+          </aside>
+        ) : (
+          <button className="button button-secondary show-peeka" type="button" onClick={onShowPeeka}>Show Peeka’s help</button>
+        )}
+      </div>
 
-      <article className="support-card terms-card" id="court-words" aria-labelledby="court-words-title">
-        <p className="eyebrow">Plain-language help</p>
-        <h2 id="court-words-title">Common court words</h2>
-        <dl>
-          <div><dt>Petition</dt><dd>Your written request asking the court to make a change.</dd></div>
-          <div><dt>Proposed order</dt><dd>A draft for the judge. Do not sign the judge’s line.</dd></div>
-          <div><dt>Filing fee</dt><dd>The amount the court may charge to open the case.</dd></div>
-          <div><dt>Fee waiver</dt><dd>A request to reduce, delay, or excuse the fee because paying it would be a hardship.</dd></div>
-        </dl>
-      </article>
+      {resumed ? <div className="resume-banner" role="status"><Icon name="check" />A non-financial draft is saved on this device. “Prepare my forms” will resume it.</div> : null}
+
+      <div className="primary-task-grid" aria-label="Choose a starting task">
+        <button className="task-card task-card-primary" type="button" onClick={() => onNavigate("interview")}>
+          <span className="task-number" aria-hidden="true">01</span>
+          <span><strong>{resumed ? "Resume my forms" : "Prepare my forms"}</strong><small>Answer one clear question at a time, then review before creating PDFs.</small></span>
+          <Icon name="arrow" />
+        </button>
+        <button className="task-card task-card-primary" type="button" onClick={() => onNavigate("court")}>
+          <span className="task-number" aria-hidden="true">02</span>
+          <span><strong>Find my court</strong><small>Choose a state and county, then use a verified court card or official directory.</small></span>
+          <Icon name="arrow" />
+        </button>
+        <button className="task-card" type="button" onClick={() => onNavigate("filing")}>
+          <span className="task-number" aria-hidden="true">03</span>
+          <span><strong>Understand filing steps</strong><small>See what to check, sign, copy, confirm, and file.</small></span>
+          <Icon name="arrow" />
+        </button>
+        <button className="task-card" type="button" onClick={() => onNavigate("glossary")}>
+          <span className="task-number" aria-hidden="true">04</span>
+          <span><strong>Get help with court words</strong><small>Read short explanations without leaving the site.</small></span>
+          <Icon name="arrow" />
+        </button>
+      </div>
+
+      <div className="before-start-grid">
+        <article>
+          <p className="eyebrow">Coverage</p>
+          <h2>What this tool can prepare</h2>
+          <ul>
+            <li>Washington: King County’s public adult individual name-change route.</li>
+            <li>Oregon: statewide adult name change, legal-sex change, or both.</li>
+            <li>Idaho: statewide adult name-change packet.</li>
+            <li>Utah: statewide adult name or sex-designation change packet.</li>
+          </ul>
+        </article>
+        <article>
+          <p className="eyebrow">Before personal information</p>
+          <h2>What to gather</h2>
+          <ul>
+            <li>Your current ID and exact requested name spelling.</li>
+            <li>A safe mailing address, phone number, and email.</li>
+            <li>Your county, birth record, and any prior case details.</li>
+            <li>Income and expense records only if you ask for fee help.</li>
+          </ul>
+        </article>
+      </div>
+      <div className="start-notice" role="note">
+        <Icon name="lock" />
+        <p><strong>Your answers stay in this browser.</strong> The site assembles PDFs on your device. It does not sign, upload, send, or file anything with a court, and it does not give legal advice.</p>
+      </div>
+    </section>
+  );
+}
+
+function CourtDirectoryScreen({
+  answers,
+  onChange,
+  onPrepare,
+}: {
+  answers: NavigatorAnswers;
+  onChange: (key: AnswerKey, value: unknown) => void;
+  onPrepare: () => void;
+}) {
+  const jurisdiction = getJurisdiction(answers.residenceState);
+  return (
+    <section className="standalone-screen" aria-labelledby="court-screen-title">
+      <p className="eyebrow">Location and court</p>
+      <h1 id="court-screen-title" data-page-heading tabIndex={-1}>Find the official court information.</h1>
+      <p className="standalone-lead">Choose where you live. An exact court card appears only when the site has verified the particular courthouse; otherwise you’ll get the official court directory.</p>
+      <div className="location-fields">
+        <div className="field-group field-half">
+          <label className="field-label" htmlFor="court-state">State</label>
+          <div className="select-wrap">
+            <select id="court-state" value={answers.residenceState ?? ""} onChange={(event) => onChange("residenceState", event.target.value)}>
+              <option value="">Select a state</option>
+              <option value="WA">Washington</option>
+              <option value="OR">Oregon</option>
+              <option value="ID">Idaho</option>
+              <option value="UT">Utah</option>
+            </select>
+          </div>
+        </div>
+        <div className="field-group field-half">
+          <label className="field-label" htmlFor="court-county">County</label>
+          <div className="select-wrap">
+            <select id="court-county" value={answers.county ?? ""} disabled={!jurisdiction} onChange={(event) => onChange("county", event.target.value)}>
+              <option value="">{jurisdiction ? "Select a county" : "Choose a state first"}</option>
+              {jurisdiction?.counties.map((county) => <option value={county} key={county}>{county} County</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+      <CourtFinder answers={answers} />
+      <div className="standalone-actions">
+        <button className="button button-primary" type="button" onClick={onPrepare}>
+          {answers.residenceState && answers.county ? "Use this location and prepare forms" : "Prepare my forms"}<Icon name="arrow" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function FilingHelpScreen({ answers }: { answers: NavigatorAnswers }) {
+  return (
+    <section className="standalone-screen" aria-labelledby="filing-steps-title">
+      <p className="eyebrow">Download and file</p>
+      <h1 id="filing-steps-title" data-page-heading tabIndex={-1}>Know what happens after a PDF is created.</h1>
+      <p className="standalone-lead">The site creates files only. You are responsible for reviewing, signing, filing, paying or requesting fee help, giving notice, and keeping copies.</p>
+      <ol className="filing-steps-list filing-steps-large">
+        <li><span>1</span><p><strong>Review every page.</strong> Compare names, dates, addresses, amounts, and checked boxes with your records.</p></li>
+        <li><span>2</span><p><strong>Finish only your parts.</strong> Add required signatures, dates, and attachments. Leave judge, clerk, and case-number lines blank when the form assigns them to the court.</p></li>
+        <li><span>3</span><p><strong>Keep restricted papers separate.</strong> Do not attach a fee-waiver financial statement to a public petition unless the clerk specifically directs you to do so.</p></li>
+        <li><span>4</span><p><strong>Confirm with the clerk.</strong> Check the filing location, method, current fee, copies, notice or publication, hearing, and local requirements.</p></li>
+        <li><span>5</span><p><strong>File and keep proof.</strong> Save or print a complete copy and keep any receipt, stamped copy, notice, or hearing information from the court.</p></li>
+      </ol>
+      <CourtFinder answers={answers} />
+    </section>
+  );
+}
+
+function GlossaryScreen() {
+  return (
+    <section className="standalone-screen" aria-labelledby="court-words-title">
+      <p className="eyebrow">Plain-language help</p>
+      <h1 id="court-words-title" data-page-heading tabIndex={-1}>Court words, without the fog.</h1>
+      <p className="standalone-lead">Open any term for a short explanation. The wording describes common use; an official form or local rule may give a term a more specific meaning.</p>
+      <div className="glossary-list">
+        {COURT_GLOSSARY.map((item) => (
+          <details key={item.term}>
+            <summary>{item.term}</summary>
+            <p>{item.meaning}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AccessibilityStatement() {
+  return (
+    <section className="standalone-screen accessibility-statement" aria-labelledby="accessibility-title">
+      <p className="eyebrow">Accessibility statement</p>
+      <h1 id="accessibility-title" data-page-heading tabIndex={-1}>Accessibility is part of the court-form path.</h1>
+      <p className="standalone-lead">The website targets WCAG 2.2 Level AA and is designed with the federal Section 508 web baseline in mind. This is a target and testing record, not a claim of certified conformance.</p>
+      <div className="statement-grid">
+        <article>
+          <h2>Current web features</h2>
+          <ul>
+            <li>Keyboard-operable task navigation, forms, dialogs, disclosure panels, and downloads.</li>
+            <li>Visible focus, a skip link, labeled controls, fieldsets, linked error summaries, and heading focus after screen changes.</li>
+            <li>Stable progress chapters, live status messages, responsive reflow, larger text, dark theme, reduced motion, and forced-colors support.</li>
+            <li>Plain-language help, a dismissible Peeka guide, official court-source links, and an HTML review and filing checklist.</li>
+          </ul>
+        </article>
+        <article>
+          <h2>Last code audit</h2>
+          <p><strong>August 9, 2026.</strong> Automated lint, type, routing, rendered-HTML, protected-file, and production-build checks are part of this release.</p>
+          <h2>Known limitations</h2>
+          <ul>
+            <li>The official court PDFs are preserved as issued and have not completed a separate tagged-PDF, reading-order, or assistive-technology accessibility audit.</li>
+            <li>Manual testing with iPhone VoiceOver, macOS VoiceOver, Windows NVDA, and disabled users remains a separate release gate and is not represented as complete.</li>
+            <li>External court websites and PDFs are controlled by their issuing agencies.</li>
+          </ul>
+        </article>
+      </div>
+      <div className="feedback-card">
+        <h2>Report an accessibility problem</h2>
+        <p>Include the page or task, what you expected, what happened, your browser or assistive technology if you know it, and a way to follow up if you want a response. Do not post private court or financial information.</p>
+        <a className="button button-primary" href="https://github.com/RadioFreeLove/RadioFreeLove.github.io/issues/new" target="_blank" rel="noreferrer">Open the accessibility feedback form<Icon name="external" /><span className="sr-only"> (opens in a new tab)</span></a>
+      </div>
     </section>
   );
 }
@@ -205,6 +555,54 @@ function draftSafeAnswers(answers: NavigatorAnswers): NavigatorAnswers {
       return !key.startsWith("orFee") && !key.startsWith("waFee");
     }),
   ) as NavigatorAnswers;
+}
+
+function ChapterProgress({
+  steps,
+  activeStepId,
+  complete = false,
+}: {
+  steps: readonly WizardStep[];
+  activeStepId: string;
+  complete?: boolean;
+}) {
+  const local = complete
+    ? { chapterId: "download" as const, localStep: 1, localTotal: 1, percent: 100 }
+    : getLocalProgress(steps, activeStepId);
+  const activeChapterIndex = FLOW_CHAPTERS.findIndex((chapter) => chapter.id === local.chapterId);
+  const currentChapter = chapterById(local.chapterId);
+
+  return (
+    <section className="chapter-progress" aria-labelledby="progress-heading">
+      <h2 className="sr-only" id="progress-heading">Form progress</h2>
+      <ol>
+        {FLOW_CHAPTERS.map((chapter, index) => {
+          const status = index < activeChapterIndex ? "complete" : index === activeChapterIndex ? "current" : "upcoming";
+          return (
+            <li key={chapter.id} data-status={status} aria-current={status === "current" ? "step" : undefined}>
+              <span aria-hidden="true">{status === "complete" ? <Icon name="check" /> : index + 1}</span>
+              <span>{chapter.label}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <div
+        className="progress-block"
+        role="progressbar"
+        aria-label={`${currentChapter.label} progress`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={local.percent}
+        aria-valuetext={`${currentChapter.label}, question ${local.localStep} of ${local.localTotal}`}
+      >
+        <div className="progress-meta">
+          <span>{currentChapter.label}</span>
+          <span>Question {local.localStep} of {local.localTotal}</span>
+        </div>
+        <div className="progress-track"><span style={{ width: `${local.percent}%` }} /></div>
+      </div>
+    </section>
+  );
 }
 
 function FieldControl({
@@ -309,7 +707,7 @@ function SourcePanel({ answers, online }: { answers: NavigatorAnswers; online: b
   const jurisdiction = getJurisdiction(answers.residenceState);
   return (
     <aside className="source-panel" aria-label="Official form and privacy status">
-      <div className="status-line">
+      <div className="status-line" role="status" aria-live="polite">
         <span className={`status-dot ${online ? "status-online" : "status-offline"}`} aria-hidden="true" />
         {online ? "Online" : "Offline — cached forms remain available"}
       </div>
@@ -366,34 +764,49 @@ function ReviewPanel({
   confirmed,
   onConfirmed,
   onChangeDraft,
+  onEditChapter,
 }: {
   answers: NavigatorAnswers;
   confirmed: boolean;
   onConfirmed: (value: boolean) => void;
   onChangeDraft: (value: boolean) => void;
+  onEditChapter: (chapterId: FlowChapterId) => void;
 }) {
   const steps = getWizardSteps(answers).filter((step) => step.id !== "review");
-  const rows = steps.flatMap((step) =>
-    step.fields
-      .filter((field) => {
-        const value = answers[field.key];
-        return value !== undefined && value !== "";
-      })
-      .map((field) => ({
-        key: `${step.id}-${String(field.key)}`,
-        label: field.label,
-        value: fieldValueLabel(field, answers[field.key]),
-      })),
-  );
+  const groups = groupReviewSteps(steps).map((group) => ({
+    ...group,
+    rows: group.steps.flatMap((step) =>
+      step.fields
+        .filter((field) => {
+          const value = answers[field.key];
+          return value !== undefined && value !== "";
+        })
+        .map((field) => ({
+          key: `${step.id}-${String(field.key)}`,
+          label: field.label,
+          value: fieldValueLabel(field, answers[field.key]),
+        })),
+    ),
+  }));
 
   return (
     <div className="review-wrap">
-      <div className="review-list">
-        {rows.map((row) => (
-          <div className="review-row" key={row.key}>
-            <span>{row.label}</span>
-            <strong>{row.value}</strong>
-          </div>
+      <div className="review-groups">
+        {groups.map(({ chapter, rows }) => (
+          <section className="review-group" aria-labelledby={`review-${chapter.id}`} key={chapter.id}>
+            <div className="review-group-heading">
+              <h3 id={`review-${chapter.id}`}>{chapter.label}</h3>
+              <button className="edit-link" type="button" onClick={() => onEditChapter(chapter.id)}>{chapter.editLabel}</button>
+            </div>
+            <div className="review-list">
+              {rows.length ? rows.map((row) => (
+                <div className="review-row" key={row.key}>
+                  <span>{row.label}</span>
+                  <strong>{row.value}</strong>
+                </div>
+              )) : <p className="review-empty">No answers were needed in this section.</p>}
+            </div>
+          </section>
         ))}
       </div>
       <div className="privacy-choice">
@@ -407,6 +820,46 @@ function ReviewPanel({
         <span><strong>I reviewed every answer.</strong><small>I understand the packet still needs my signature, filing fee or waiver request, required attachments, and court filing.</small></span>
       </label>
     </div>
+  );
+}
+
+function AnswerReviewSummary({ answers }: { answers: NavigatorAnswers }) {
+  const groups = groupReviewSteps(
+    getWizardSteps(answers).filter((step) => step.id !== "review"),
+  ).map((group) => ({
+    ...group,
+    rows: group.steps.flatMap((step) =>
+      step.fields
+        .filter((field) => {
+          const value = answers[field.key];
+          return value !== undefined && value !== "";
+        })
+        .map((field) => ({
+          key: `${step.id}-${String(field.key)}`,
+          label: field.label,
+          value: fieldValueLabel(field, answers[field.key]),
+        })),
+    ),
+  }));
+
+  return (
+    <section className="html-review" aria-labelledby="html-review-title">
+      <h2 id="html-review-title">Accessible answer review</h2>
+      <p>This HTML copy is provided alongside the PDFs so you can review the answers with browser text settings or assistive technology.</p>
+      {groups.map(({ chapter, rows }) => (
+        <details key={chapter.id} open>
+          <summary>{chapter.label}</summary>
+          <div className="review-list">
+            {rows.length ? rows.map((row) => (
+              <div className="review-row" key={row.key}>
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
+              </div>
+            )) : <p className="review-empty">No answers were needed in this section.</p>}
+          </div>
+        </details>
+      ))}
+    </section>
   );
 }
 
@@ -467,7 +920,7 @@ function ResultPanel({
       <div className="result-illustration"><Peeka mood="happy" /><span><Icon name="check" /></span></div>
       <p className="eyebrow">Files created on this device</p>
       <h1 id="result-title" data-page-heading tabIndex={-1}>Your PDFs are ready</h1>
-      <p>{results.length > 1 ? "Save each PDF separately and follow the filing notes below." : results[0].packetLabel}</p>
+      <p>{results.length > 1 ? "Save each PDF separately, review the accessible HTML copy, and follow the filing checklist below." : `${results[0].packetLabel}. Review the accessible HTML copy and filing checklist below.`}</p>
       <div className="result-files">
         {results.map((result, index) => (
           <div className="file-card file-card-action" key={result.filename}>
@@ -497,16 +950,21 @@ function ResultPanel({
           </div>
         </div>
       ) : null}
+      <CourtFinder answers={answers} />
+      <AnswerReviewSummary answers={answers} />
       <div className="handoff-list" id="result-filing-checklist">
-        <h2>Before you file</h2>
+        <h2>Your filing checklist</h2>
         <ol>
-          <li>Open every PDF and compare each filled answer with your records.</li>
-          <li>Add only the signature, date, attachments, and case information the court asks you to complete. Never sign a judge or clerk line.</li>
-          <li>Keep every waiver application or financial statement separate from the main petition unless the clerk gives different instructions.</li>
-          <li>Confirm the filing method, hearing, notice, and publication requirements on the official source page.</li>
+          <li><strong>Save and open every file.</strong> Confirm that each PDF opens and that all pages are present.</li>
+          <li><strong>Compare every answer.</strong> Check names, dates, addresses, amounts, and selected boxes against your records and the HTML review above.</li>
+          <li><strong>Finish only your lines.</strong> Add required signatures, dates, and attachments. Never sign a judge or clerk line.</li>
+          <li><strong>Make copies.</strong> Keep a complete copy of the packet and each attachment for yourself.</li>
+          <li><strong>Keep financial paperwork separate.</strong> Do not attach a fee-waiver statement to a public petition unless the clerk directs you to do so.</li>
+          <li><strong>Confirm with the court.</strong> Verify the filing location, method, current fee or fee-help process, notice or publication, hearing, and copy requirements.</li>
+          <li><strong>File the packet.</strong> This site has not sent anything to the court. Keep the court’s receipt, stamped copy, or confirmation.</li>
         </ol>
       </div>
-      <p className="result-note"><Icon name="lock" />The PDFs were assembled locally and have not been uploaded or filed.</p>
+      <p className="result-note" role="status"><Icon name="lock" />The PDFs were assembled locally and have not been uploaded, signed, or filed.</p>
       <button className="text-button" type="button" onClick={onRestart}>Start another packet</button>
     </section>
   );
@@ -514,6 +972,7 @@ function ResultPanel({
 
 export default function NavigatorApp() {
   const [answers, setAnswers] = useState<NavigatorAnswers>({});
+  const [view, setView] = useState<AppView>("start");
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Partial<Record<AnswerKey, string>>>({});
   const [outcome, setOutcome] = useState<BlockingOutcome>();
@@ -525,11 +984,14 @@ export default function NavigatorApp() {
   const [hydrated, setHydrated] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [online, setOnline] = useState(true);
+  const [peekaVisible, setPeekaVisible] = useState(true);
+  const [announcement, setAnnouncement] = useState("");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [largeText, setLargeText] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent>();
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const generationErrorRef = useRef<HTMLDivElement>(null);
   const installDialogRef = useRef<HTMLElement>(null);
   const installTitleRef = useRef<HTMLHeadingElement>(null);
   const installTriggerRef = useRef<HTMLButtonElement>(null);
@@ -537,12 +999,6 @@ export default function NavigatorApp() {
   const steps = useMemo(() => getWizardSteps(answers), [answers]);
   const activeStep = steps[Math.min(stepIndex, steps.length - 1)];
   const jurisdiction = getJurisdiction(answers.residenceState);
-  // Before a state is selected, the wizard has not expanded its state-specific
-  // branch yet. Use a representative total so the first screen does not imply
-  // that the entire questionnaire is already complete.
-  const displayStepTotal = answers.residenceState ? steps.length : 8;
-  const displayStepNumber = Math.min(stepIndex, displayStepTotal - 1) + 1;
-  const progress = Math.round((displayStepNumber / displayStepTotal) * 100);
 
   useEffect(() => {
     const storedTheme = localStorage.getItem(THEME_KEY);
@@ -551,6 +1007,7 @@ export default function NavigatorApp() {
     document.documentElement.dataset.theme = initialTheme;
     const storedText = localStorage.getItem(TEXT_KEY) === "large";
     document.documentElement.dataset.text = storedText ? "large" : "standard";
+    const storedPeeka = localStorage.getItem(PEEKA_KEY) !== "false";
 
     const draft = localStorage.getItem(DRAFT_KEY);
     let restoredDraft: NavigatorAnswers | undefined;
@@ -567,6 +1024,7 @@ export default function NavigatorApp() {
     queueMicrotask(() => {
       setTheme(initialTheme);
       setLargeText(storedText);
+      setPeekaVisible(storedPeeka);
       if (restoredDraft) {
         setAnswers(restoredDraft);
         setResumed(true);
@@ -575,7 +1033,11 @@ export default function NavigatorApp() {
       setHydrated(true);
     });
 
-    const updateOnline = () => setOnline(navigator.onLine);
+    const updateOnline = () => {
+      const isOnline = navigator.onLine;
+      setOnline(isOnline);
+      setAnnouncement(isOnline ? "You are back online." : "You are offline. Cached forms and saved browser data remain available.");
+    };
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
     const beforeInstall = (event: Event) => {
@@ -633,7 +1095,10 @@ export default function NavigatorApp() {
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || document.activeElement === installTitleRef.current)
+      ) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -645,6 +1110,11 @@ export default function NavigatorApp() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [showInstallHelp]);
+
+  useEffect(() => {
+    if (!generationError) return;
+    generationErrorRef.current?.focus();
+  }, [generationError]);
 
   function updateAnswer(key: AnswerKey, value: unknown) {
     setOutcome(undefined);
@@ -672,9 +1142,48 @@ export default function NavigatorApp() {
     }, 30);
   }
 
+  function navigate(nextView: AppView) {
+    setView(nextView);
+    setErrors({});
+    setGenerationError(undefined);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    focusCurrentHeading();
+  }
+
+  function setPeekaPreference(visible: boolean) {
+    setPeekaVisible(visible);
+    localStorage.setItem(PEEKA_KEY, String(visible));
+    setAnnouncement(visible ? "Peeka’s optional help is shown." : "Peeka’s optional help is hidden. You can show it again at any time.");
+  }
+
+  function prepareFromCourt() {
+    const preferredStep = answers.residenceState
+      ? answers.county
+        ? "adult"
+        : "county"
+      : "state";
+    const nextIndex = steps.findIndex((step) => step.id === preferredStep);
+    setStepIndex(Math.max(0, nextIndex));
+    navigate("interview");
+  }
+
+  function editChapter(chapterId: FlowChapterId) {
+    const nextIndex = steps.findIndex((step) => chapterForStep(step.id) === chapterId);
+    if (nextIndex < 0) return;
+    setStepIndex(nextIndex);
+    setReviewConfirmed(false);
+    setGenerationError(undefined);
+    setAnnouncement(`${chapterById(chapterId).label} opened for editing. Your answers were kept.`);
+    focusCurrentHeading();
+  }
+
   function goBack() {
     setErrors({});
     setOutcome(undefined);
+    if (stepIndex === 0) {
+      navigate("start");
+      return;
+    }
     setStepIndex((index) => Math.max(0, index - 1));
     focusCurrentHeading();
   }
@@ -682,10 +1191,12 @@ export default function NavigatorApp() {
   async function generate() {
     if (!reviewConfirmed) {
       setGenerationError("Confirm that you reviewed every answer before creating the packet.");
+      setAnnouncement("PDF creation paused. Confirm that you reviewed every answer.");
       return;
     }
     if (!jurisdiction || isReviewOverdue(jurisdiction)) {
       setGenerationError("This form set must be reviewed against the official sources before generation can continue.");
+      setAnnouncement("PDF creation paused because the official form review is overdue.");
       return;
     }
     const blocked = getBlockingOutcome(answers);
@@ -696,6 +1207,7 @@ export default function NavigatorApp() {
     }
     setGenerating(true);
     setGenerationError(undefined);
+    setAnnouncement("Creating your PDFs on this device.");
     try {
       const { generateFeeWaiver, generatePacket } = await import("../../lib/pdf/generator");
       const generated: GenerationResult[] = [await generatePacket(answers)];
@@ -711,11 +1223,14 @@ export default function NavigatorApp() {
         ),
       );
       setResults(generated);
+      setAnnouncement(`${generated.length} PDF ${generated.length === 1 ? "file is" : "files are"} ready. Nothing has been uploaded or filed.`);
       focusCurrentHeading();
       if (!answers.rememberDraft) localStorage.removeItem(DRAFT_KEY);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : "The packet could not be created.");
+      const message = error instanceof Error ? error.message : "The packet could not be created.";
+      setGenerationError(message);
+      setAnnouncement(`PDF creation failed. ${message}`);
     } finally {
       setGenerating(false);
     }
@@ -757,7 +1272,10 @@ export default function NavigatorApp() {
     resultUrls.forEach((url) => URL.revokeObjectURL(url));
     setResultUrls([]);
     setResults(undefined);
+    setView("start");
+    setAnnouncement("All form answers were cleared from this browser.");
     window.scrollTo({ top: 0, behavior: "smooth" });
+    focusCurrentHeading();
   }
 
   function requestClearAll() {
@@ -803,6 +1321,7 @@ export default function NavigatorApp() {
     anchor.href = resultUrl;
     anchor.download = result.filename;
     anchor.click();
+    setAnnouncement(`${result.filename} download started.`);
   }
 
   async function shareResult() {
@@ -811,7 +1330,13 @@ export default function NavigatorApp() {
       const blob = new Blob([result.bytes.slice().buffer], { type: "application/pdf" });
       return new File([blob], result.filename, { type: "application/pdf" });
     });
-    await navigator.share({ title: "Identity Navigator court paperwork", files });
+    try {
+      await navigator.share({ title: "Identity Navigator court paperwork", files });
+      setAnnouncement("The system share sheet was opened for your PDF files.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setAnnouncement("The files could not be shared. You can still save each PDF.");
+    }
   }
 
   const canShare = Boolean(
@@ -829,16 +1354,26 @@ export default function NavigatorApp() {
   const errorEntries = activeStep.fields
     .map((field) => ({ field, message: errors[field.key] }))
     .filter((entry): entry is { field: WizardField; message: string } => Boolean(entry.message));
+  const interviewScreenLabel = activeStep.id === "review"
+    ? "Review"
+    : activeStep.id === "state" || activeStep.id === "county"
+      ? "Location and court"
+      : "Question";
+  const interviewTitle = activeStep.id === "review"
+    ? "Review before you create the files."
+    : activeStep.id === "state" || activeStep.id === "county"
+      ? "Start with the right place."
+      : "One court topic at a time.";
 
   return (
     <div className="app-shell" id="top">
-      <a className="skip-link" href="#main-content">Skip to the form</a>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <header className="app-header">
         <div className="header-inner">
-          <a className="brand" href="#top" aria-label="Identity Navigator home">
+          <button className="brand" type="button" onClick={() => navigate("start")} aria-label="Identity Navigator home">
             <span className="brand-mark"><Peeka /></span>
             <span><strong>Identity Navigator</strong><small>A private court-form guide</small></span>
-          </a>
+          </button>
           <div className="header-actions">
             <button className="utility-button text-size-button" type="button" onClick={toggleText} aria-pressed={largeText} aria-label={largeText ? "Use standard text size" : "Use larger text"}><span>AA</span><span className="utility-label">Text</span></button>
             <button className="utility-button" type="button" onClick={toggleTheme} aria-label={`Use ${theme === "light" ? "dark" : "light"} theme`}><Icon name={theme === "light" ? "moon" : "sun"} /><span className="utility-label">Theme</span></button>
@@ -848,15 +1383,17 @@ export default function NavigatorApp() {
       </header>
 
       <div className="privacy-strip"><Icon name="lock" /><span>Private by default: answers stay in this browser and PDFs are assembled on your device.</span></div>
-      <TaskNavigation />
+      <TaskNavigation activeView={view} onNavigate={navigate} />
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
       {showInstallHelp ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={closeInstallHelp}>
-          <section ref={installDialogRef} className="install-sheet" role="dialog" aria-modal="true" aria-labelledby="install-title" onMouseDown={(event) => event.stopPropagation()}>
+          <section ref={installDialogRef} className="install-sheet" role="dialog" aria-modal="true" aria-labelledby="install-title" aria-describedby="install-description" onMouseDown={(event) => event.stopPropagation()}>
             <div className="sheet-handle" />
             <button className="sheet-close" type="button" onClick={closeInstallHelp}>Close</button>
             <p className="eyebrow">Add to your home screen</p>
             <h2 ref={installTitleRef} id="install-title" tabIndex={-1}>Install Identity Navigator</h2>
+            <p id="install-description">Use your browser’s home-screen command. Installation does not upload your answers.</p>
             <ol>
               <li><strong>iPhone or iPad:</strong> in Safari, tap Share, then “Add to Home Screen.”</li>
               <li><strong>Android:</strong> open the browser menu and choose “Install app” or “Add to Home screen.”</li>
@@ -868,35 +1405,42 @@ export default function NavigatorApp() {
 
       <div className="app-layout">
         <main id="main-content" className="questionnaire" tabIndex={-1}>
-          {resumed && stepIndex === 0 && !results ? (
-            <div className="resume-banner" role="status"><Icon name="check" />A draft saved on this device was restored.<button type="button" onClick={() => setResumed(false)}>Dismiss</button></div>
-          ) : null}
-
-          {!results && !outcome ? (
-            <section className="hero-intro" aria-labelledby="page-title">
-              <div>
-                <p className="eyebrow">Name and identity court forms</p>
-                <h1 id="page-title">One clear question at a time.</h1>
-                <p>Answer in everyday language. We’ll place your answers into current official court forms for {answers.residenceState ? stateName(answers.residenceState) : "Washington, Oregon, Idaho, or Utah"}.</p>
-              </div>
-              <PeekaGuide stepId={activeStep.id} />
-            </section>
-          ) : null}
-
-          <CourtFinder answers={answers} />
-
-          {results ? (
-            <ResultPanel results={results} answers={answers} onDownload={downloadResult} onShare={() => void shareResult()} canShare={canShare} onRestart={clearAll} />
+          {view === "start" ? (
+            <StartScreen resumed={resumed} peekaVisible={peekaVisible} onNavigate={navigate} onDismissPeeka={() => setPeekaPreference(false)} onShowPeeka={() => setPeekaPreference(true)} />
+          ) : view === "court" ? (
+            <CourtDirectoryScreen answers={answers} onChange={updateAnswer} onPrepare={prepareFromCourt} />
+          ) : view === "filing" ? (
+            <FilingHelpScreen answers={answers} />
+          ) : view === "glossary" ? (
+            <GlossaryScreen />
+          ) : view === "accessibility" ? (
+            <AccessibilityStatement />
+          ) : results ? (
+            <>
+              <ChapterProgress steps={steps} activeStepId="review" complete />
+              <ResultPanel results={results} answers={answers} onDownload={downloadResult} onShare={() => void shareResult()} canShare={canShare} onRestart={clearAll} />
+            </>
           ) : outcome ? (
             <OutcomePanel outcome={outcome} answers={answers} onBack={() => { setOutcome(undefined); focusCurrentHeading(); }} />
           ) : (
             <>
-              <div className="progress-block" role="progressbar" aria-label="Questionnaire progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-valuetext={`Step ${displayStepNumber} of ${displayStepTotal}, ${progress}% complete`}>
-                <div className="progress-meta"><span>Step {displayStepNumber} of {displayStepTotal}</span><span>{progress}%</span></div>
-                <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
-              </div>
+              {resumed && stepIndex === 0 ? (
+                <div className="resume-banner" role="status"><Icon name="check" />A draft saved on this device was restored.<button type="button" onClick={() => setResumed(false)}>Dismiss</button></div>
+              ) : null}
+              <section className="interview-intro" aria-labelledby="interview-title">
+                <div>
+                  <p className="eyebrow">{interviewScreenLabel}</p>
+                  <h1 id="interview-title">{interviewTitle}</h1>
+                  <p>Answers are used only for the supported {answers.residenceState ? stateName(answers.residenceState) : "Washington, Oregon, Idaho, or Utah"} court-form path.</p>
+                </div>
+                {!peekaVisible ? <button className="button button-secondary show-peeka" type="button" onClick={() => setPeekaPreference(true)}>Show Peeka’s help</button> : null}
+              </section>
 
-              <section className="question-card" aria-labelledby="step-title">
+              <ChapterProgress steps={steps} activeStepId={activeStep.id} />
+              {peekaVisible ? <PeekaGuide step={activeStep} answers={answers} onDismiss={() => setPeekaPreference(false)} /> : null}
+              {activeStep.id === "county" || activeStep.id === "wa-declarations" ? <CourtFinder answers={answers} /> : null}
+
+              <section className="question-card" aria-labelledby="step-title" aria-busy={generating}>
                 <p className="eyebrow">{activeStep.eyebrow}</p>
                 <h2 id="step-title" data-page-heading tabIndex={-1}>{activeStep.title}</h2>
                 {activeStep.description ? <p className="step-description">{activeStep.description}</p> : null}
@@ -920,6 +1464,7 @@ export default function NavigatorApp() {
                     confirmed={reviewConfirmed}
                     onConfirmed={(value) => { setReviewConfirmed(value); setGenerationError(undefined); }}
                     onChangeDraft={(value) => updateAnswer("rememberDraft", value)}
+                    onEditChapter={editChapter}
                   />
                 ) : (
                   <div className="field-grid">
@@ -935,11 +1480,11 @@ export default function NavigatorApp() {
                   </div>
                 )}
                 {activeStep.sourceNote ? <div className="source-note"><Icon name="shield" />{activeStep.sourceNote}</div> : null}
-                {generationError ? <div className="generation-error" role="alert">{generationError}</div> : null}
+                {generationError ? <div className="generation-error" ref={generationErrorRef} role="alert" tabIndex={-1}>{generationError}</div> : null}
                 <div className="card-actions">
-                  {stepIndex > 0 ? <button className="button button-secondary" type="button" onClick={goBack}>Back</button> : <span />}
+                  <button className="button button-secondary" type="button" onClick={goBack}>{stepIndex > 0 ? "Back" : "Back to start"}</button>
                   <button className="button button-primary" type="button" onClick={goNext} disabled={generating}>
-                    {activeStep.id === "review" ? (generating ? "Creating PDF…" : "Create official PDF") : "Continue"}
+                    {activeStep.id === "review" ? (generating ? "Creating PDFs…" : "Create PDFs") : "Continue"}
                     {!generating ? <Icon name={activeStep.id === "review" ? "download" : "arrow"} /> : <span className="spinner" aria-hidden="true" />}
                   </button>
                 </div>
@@ -954,8 +1499,6 @@ export default function NavigatorApp() {
         <SourcePanel answers={answers} online={online} />
       </div>
 
-      <SupportSections />
-
       <footer className="app-footer">
         <div>
           <strong>How this works</strong>
@@ -965,6 +1508,10 @@ export default function NavigatorApp() {
           <summary>Important limits</summary>
           <p>This is legal information, not legal advice. Court rules and forms can change. Check the official court links before filing, and ask the clerk or a lawyer about questions specific to your case.</p>
         </details>
+        <div className="footer-links">
+          <button type="button" onClick={() => navigate("accessibility")}>Accessibility statement</button>
+          <a href="https://github.com/RadioFreeLove/RadioFreeLove.github.io" target="_blank" rel="noreferrer">View the public source<Icon name="external" /><span className="sr-only"> (opens in a new tab)</span></a>
+        </div>
       </footer>
     </div>
   );
