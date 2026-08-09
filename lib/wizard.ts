@@ -148,10 +148,10 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
   const steps: WizardStep[] = [
     {
       id: "state",
-      eyebrow: "Start with jurisdiction",
+      eyebrow: "First step",
       title: "Where do you live now?",
       description:
-        "Court eligibility usually follows current residence, not the state on a birth certificate.",
+        "The state where you live now usually decides which court and forms you need. It may be different from the state on your birth certificate.",
       fields: [
         {
           key: "residenceState",
@@ -161,7 +161,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
           options: STATE_OPTIONS,
         },
       ],
-      sourceNote: "Coverage currently includes Washington, Oregon, Idaho, and Utah.",
+      sourceNote: "This tool currently prepares forms for Washington, Oregon, Idaho, and Utah.",
     },
   ];
 
@@ -173,7 +173,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       eyebrow: jurisdiction.name,
       title: "Which county do you live in?",
       description:
-        "This selects the court caption and checks whether a local form is required.",
+        "We use your county to choose the court name printed on the form and to check whether the court requires a local form.",
       fields: [
         {
           key: "county",
@@ -189,10 +189,10 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
     },
     {
       id: "adult",
-      eyebrow: "Packet eligibility",
+      eyebrow: "Who can use these forms",
       title: "Are you at least 18 years old?",
       description:
-        "This release prepares adult forms only. Minor and guardianship cases use different packets.",
+        "This tool prepares adult forms only. A child’s case or a guardianship case uses different forms.",
       fields: [
         {
           key: "adult",
@@ -222,8 +222,8 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
   if (answers.residenceState === "WA" && answers.county === "King") {
     steps.push({
       id: "wa-route",
-      eyebrow: "Washington privacy route",
-      title: "Which court route fits your filing?",
+      eyebrow: "Washington privacy options",
+      title: "Which court option fits your filing?",
       description:
         "King County District Court name-change files are public. A qualifying Superior Court petition may be automatically sealed.",
       fields: [
@@ -236,12 +236,12 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
             {
               value: "district-public",
               label: "District Court — public record",
-              description: "Use the official King County individual petition bundled here.",
+              description: "Use the official King County individual petition included here.",
             },
             {
               value: "superior-confidential",
               label: "Superior Court — confidential route",
-              description: "Use the official court’s protected process instead of this generator.",
+              description: "Use the official court’s protected process instead of creating a PDF here.",
             },
           ],
         },
@@ -254,7 +254,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
     eyebrow: "Filing costs",
     title: "Would paying the court fees make it hard to cover basic needs?",
     description:
-      "A fee waiver is a request, not an automatic approval. Choosing yes will either prepare the current official request separately or send you to the court’s official guided route.",
+      "A fee waiver asks the court to reduce, delay, or excuse a filing fee. The court decides. Choosing yes will prepare the current request separately or link you to the court’s own process.",
     fields: [
       {
         key: "feeHelp",
@@ -277,7 +277,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
     sourceNote:
       jurisdiction.feeWaiver.mode === "generated"
         ? "Financial waiver paperwork is kept separate from the main court packet. Financial answers are never saved in a draft."
-        : "The result will link directly to the court’s current fee-waiver process; this release will not guess at a sworn financial form it does not fully model.",
+        : "The result will link directly to the court’s current fee-waiver process. This tool will not try to fill a financial form it cannot prepare reliably.",
   });
 
   steps.push({
@@ -305,7 +305,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
           };
     steps.push({
       id: "new-name",
-      eyebrow: "Requested order",
+      eyebrow: "The name you want",
       title: "What should your new legal name be?",
       description: "Use the exact spelling and spacing you want in the signed order.",
       fields: [
@@ -455,9 +455,9 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       answers.orSexOffender === "yes";
     steps.push({
       id: "or-disclosures",
-      eyebrow: "Oregon public-interest disclosures",
-      title: "Answer the petition’s required disclosures",
-      description: "The official form asks you to check every statement that applies.",
+      eyebrow: "Questions the Oregon form requires",
+      title: "Tell us whether any of these apply",
+      description: "The court calls these public-interest disclosures. Check every statement that applies to you.",
       fields: [
         {
           key: "orChildSupport",
@@ -533,8 +533,8 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
   if (answers.residenceState === "WA") {
     steps.push({
       id: "wa-declarations",
-      eyebrow: "King County declarations",
-      title: "Answer the petition’s eligibility questions",
+      eyebrow: "Questions the King County form requires",
+      title: "Answer these court-form questions",
       fields: [
         {
           key: "waCourthouse",
@@ -650,8 +650,8 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
   if (answers.residenceState === "ID") {
     steps.push({
       id: "id-declarations",
-      eyebrow: "Idaho certification",
-      title: "Confirm the petition’s required statements",
+      eyebrow: "Questions the Idaho form requires",
+      title: "Answer these required questions",
       description:
         `The ${answers.county ?? "selected"} County packet will use the ${IDAHO_COURT_DETAILS[answers.county ?? ""]?.newspaper ?? "court-designated newspaper"} for the publication request.`,
       fields: [
@@ -677,8 +677,8 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
   if (answers.residenceState === "UT") {
     steps.push({
       id: "ut-declarations",
-      eyebrow: "Utah declarations",
-      title: "Answer the petition’s case and registry questions",
+      eyebrow: "Questions the Utah form requires",
+      title: "Answer these case and registry questions",
       description:
         `Your caption will identify the ${UTAH_JUDICIAL_DISTRICT[answers.county ?? ""] ?? "appropriate"} Judicial District. Confirm the exact courthouse address before filing.`,
       fields: [
@@ -777,7 +777,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
     steps.push(
       {
         id: "or-fee-personal",
-        eyebrow: "Restricted-access fee application",
+        eyebrow: "Private fee request",
         title: "Tell the court about your household and benefits",
         description:
           "Use current monthly amounts. Enter 0 when a program does not apply. The court—not this app—decides whether to waive, defer, postpone, or deny the fee.",
@@ -841,7 +841,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       },
       {
         id: "or-fee-finances",
-        eyebrow: "Restricted-access fee application",
+        eyebrow: "Private fee request",
         title: "Add monthly income and household assets",
         description:
           "Use combined amounts for everyone in your household, as the official form instructs.",
@@ -864,7 +864,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       },
       {
         id: "or-fee-expenses",
-        eyebrow: "Restricted-access fee application",
+        eyebrow: "Private fee request",
         title: "Add monthly living expenses",
         fields: [
           moneyField(
@@ -897,7 +897,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
     steps.push(
       {
         id: "wa-fee-motion",
-        eyebrow: "King County fee-waiver motion",
+        eyebrow: "King County fee request",
         title: "Complete the motion details",
         fields: [
           {
@@ -919,7 +919,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       },
       {
         id: "wa-fee-income",
-        eyebrow: "Confidential financial statement",
+        eyebrow: "Private fee information",
         title: "Add household support and monthly income",
         description: "Enter 0 for required money fields that do not apply.",
         fields: [
@@ -998,7 +998,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       },
       {
         id: "wa-fee-assets",
-        eyebrow: "Confidential financial statement",
+        eyebrow: "Private fee information",
         title: "Add current household assets",
         description: "Enter equity—the value after subtracting any loan—for vehicles and a home.",
         fields: [
@@ -1019,7 +1019,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       },
       {
         id: "wa-fee-expenses",
-        eyebrow: "Confidential financial statement",
+        eyebrow: "Private fee information",
         title: "Add monthly household expenses",
         fields: [
           moneyField("waFeeRent", "Rent or mortgage"),
@@ -1037,7 +1037,7 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
       },
       {
         id: "wa-fee-other-expenses",
-        eyebrow: "Confidential financial statement",
+        eyebrow: "Private fee information",
         title: "Add any remaining expenses and debts",
         fields: [
           {
@@ -1061,10 +1061,10 @@ export function getWizardSteps(answers: NavigatorAnswers): WizardStep[] {
 
   steps.push({
     id: "review",
-    eyebrow: "Final review",
-    title: "Review before creating the packet",
+    eyebrow: "Check your answers",
+    title: "Review before creating the PDFs",
     description:
-      "The generator fills official court PDFs but does not file them, sign for you, or decide whether a judge will grant the request.",
+      "This tool fills official court PDFs. It does not file them, sign for you, or decide whether a judge will approve the request.",
     fields: [],
   });
 
@@ -1078,10 +1078,10 @@ export function getBlockingOutcome(
     return {
       id: "minor",
       kind: "official-route",
-      title: "This generator does not prepare a minor’s packet",
+      title: "These forms are not for a child’s case",
       description:
-        "Minor petitions can require a parent, guardian, notice, consent, or a different court form.",
-      nextStep: "Open the official court sources below and select the minor or guardianship process.",
+        "A child’s petition may require a parent or guardian, special notice or consent, and different court forms.",
+      nextStep: "Open the official court sources below and choose the process for a child or guardianship case.",
     };
   }
 
@@ -1102,7 +1102,7 @@ export function getBlockingOutcome(
         kind: "official-route",
         title: "A legal-sex record update is not part of this court petition",
         description:
-          "This release covers King County’s individual court name-change petition only.",
+          "This tool prepares only King County’s individual name-change petition.",
         nextStep: "Use the official Washington Courts source below to identify the correct record agency or court process.",
       };
     }
