@@ -490,6 +490,11 @@ export const JURISDICTIONS: Record<StateCode, JurisdictionConfig> = {
         kind: "fees",
       },
       {
+        label: "Idaho county courthouse directory",
+        url: "https://isc.idaho.gov/about-the-courts/county-courthouse-directory",
+        kind: "help",
+      },
+      {
         label: "Idaho legal aid name-change information",
         url: "https://idaholegalaid.org/resources/name-changes",
         kind: "help",

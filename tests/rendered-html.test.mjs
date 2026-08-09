@@ -13,8 +13,24 @@ test("renders development preview metadata", async () => {
   assert.match(html, developmentPreviewMeta);
   assert.match(html, /Identity Navigator/);
   assert.match(html, /One clear question at a time/);
+  assert.match(html, /Prepare my forms/);
+  assert.match(html, /Find my court/);
+  assert.match(html, /Peeka’s tip/);
+  assert.match(html, /Your filing steps/);
+  assert.match(html, /Common court words/);
+  assert.match(html, /role="progressbar"/);
+  assert.match(html, /aria-label="Install this app"/);
   assert.match(html, /manifest\.webmanifest/);
   assert.match(html, /Private by default/);
+});
+
+test("ships Peeka as a black cat with green eyes", async () => {
+  const icon = await readFile(
+    new URL("../public/icon.svg", import.meta.url),
+    "utf8",
+  );
+  assert.match(icon, /fill="#171c1a"/);
+  assert.match(icon, /fill="#83d866"/);
 });
 
 test("ships an installable PWA manifest", async () => {
