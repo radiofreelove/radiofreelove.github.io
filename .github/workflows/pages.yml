@@ -44,16 +44,22 @@ jobs:
       - name: Install exact dependencies
         run: npm ci
 
-      - name: Verify official court-form files
-        run: npm run verify:forms
-
       - name: Check source
         run: |
           npm run lint
           npm run typecheck
 
-      - name: Build static offline PWA
-        run: npm run build:pages
+      # `npm test` is the release gate declared in package.json. It verifies the
+      # PDF generator and all 13 court PDFs byte-for-byte, verifies the form
+      # registry, builds the deployable static export, and runs the offline,
+      # accessibility, contrast, and state-routing suites.
+      #
+      # It replaces the separate verify:forms and build:pages steps because it
+      # already performs both. Keeping one step means the export that gets
+      # uploaded is the same build the tests ran against, and the byte-for-byte
+      # check on the generator and court PDFs cannot be skipped on a deploy.
+      - name: Run the release gate and build the static export
+        run: npm test
 
       - name: Verify deployable files
         shell: bash

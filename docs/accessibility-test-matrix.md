@@ -10,6 +10,12 @@ The court-issued PDF files and `lib/pdf/generator.ts` are protected release inpu
 
 ## Automated checks required for every web release
 
+The Pages deploy workflow runs `npm run lint`, `npm run typecheck`, and then
+`npm test`, which is the release gate declared in `package.json`. Every check in
+the table below therefore blocks a deploy rather than depending on someone
+remembering to run it locally. The static export that ships is the same build
+the tests ran against.
+
 | Check | Command or test | Release expectation |
 | --- | --- | --- |
 | Protected court files | `npm run verify:protected` | All 13 PDFs and the generator match locked SHA-256 values. |
