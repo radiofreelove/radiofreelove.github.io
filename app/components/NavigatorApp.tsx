@@ -45,6 +45,15 @@ type AppView =
   | "glossary"
   | "accessibility";
 
+const VIEW_TITLES: Record<AppView, string> = {
+  start: "Start",
+  interview: "Prepare my forms",
+  court: "Find my court",
+  filing: "Filing steps",
+  glossary: "Help with court words",
+  accessibility: "Accessibility",
+};
+
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -1115,6 +1124,14 @@ export default function NavigatorApp() {
     if (!generationError) return;
     generationErrorRef.current?.focus();
   }, [generationError]);
+
+  // The application is a single URL, so the static document title would
+  // otherwise describe every view. Screen-reader and tab-list users rely on the
+  // title to tell these views apart (WCAG 2.4.2).
+  useEffect(() => {
+    if (!hydrated) return;
+    document.title = `${VIEW_TITLES[view]} — Identity Navigator`;
+  }, [view, hydrated]);
 
   function updateAnswer(key: AnswerKey, value: unknown) {
     setOutcome(undefined);
