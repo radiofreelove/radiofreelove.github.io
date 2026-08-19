@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const expected = new Map([
-  ["lib/pdf/generator.ts", "edf6cef5c560f3a2289f905bb7efae169322aa7db8fd30cc1e60f4e6a08d1a82"],
+  ["lib/pdf/generator.ts", "ee973ad1c601e6409f59312815cef418823f2e50b295e8d73870c86779a743cd"],
   ["public/forms/idaho/2026-08-checked/civil-cover-sheet.pdf", "28ea03f43b27bbdaa86520d7db57b22d6529e9d2e3d9bd1ae909c27d3a02af1b"],
   ["public/forms/idaho/2026-08-checked/judgment.pdf", "8ce3495c3c686faa270c97c13006709eec29018550ea4fd6102146268a12437d"],
   ["public/forms/idaho/2026-08-checked/notice-of-hearing.pdf", "4a85bca97318f66bc4d4746f86634ced2ba87e7425aea125e9e13f856cc7cdfa"],

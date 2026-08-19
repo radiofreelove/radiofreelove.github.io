@@ -36,9 +36,7 @@ function assertContrast(foreground, background, label, minimum) {
   );
 }
 
-// Every foreground/background pairing the interface actually renders as text.
-// Keeping this list explicit means a token edit cannot silently drop a surface
-// below AA in one theme while staying legible in the other.
+// Explicit pairs catch regressions in either theme.
 const TEXT_PAIRS = [
   ["--ink", "--paper", "body text on the page"],
   ["--ink", "--surface", "body text on a card"],
@@ -61,7 +59,7 @@ const TEXT_PAIRS = [
   ["--finder-muted", "--finder-bg", "court-finder secondary text"],
 ];
 
-// WCAG 1.4.11 Non-text Contrast: component boundaries need 3:1, not 4.5:1.
+// WCAG 1.4.11 requires 3:1 contrast for component boundaries.
 const NON_TEXT_PAIRS = [
   ["--line-strong", "--surface", "input border against a card"],
 ];

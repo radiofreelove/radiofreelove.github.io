@@ -1,78 +1,70 @@
-# Website accessibility test matrix
+# Web accessibility checks
 
-Updated: August 9, 2026
+Updated: August 10, 2026
 
-## Scope and release boundary
+The website targets WCAG 2.2 Level AA and considers the Section 508 web baseline. This is not a claim of certified conformance.
 
-The website targets WCAG 2.2 Level AA and is evaluated with the federal Section 508 web baseline in mind. This record does not claim certified conformance.
+This record covers the website. Court PDFs and `lib/pdf/generator.ts` are protected release inputs. PDF tags, reading order, answer semantics, bookmarks, and assistive-technology behavior require separate testing.
 
-The court-issued PDF files and `lib/pdf/generator.ts` are protected release inputs. Their byte hashes must remain unchanged during web-only accessibility work. Generated-PDF accessibility—tags, reading order, form-answer semantics, bookmarks, and assistive-technology behavior—is a separate unresolved gate.
+## Release gate
 
-## Automated checks required for every web release
+The Pages workflow runs lint, type checking, and `npm test`. A failed check blocks deployment. The tested export is the export that ships.
 
-The Pages deploy workflow runs `npm run lint`, `npm run typecheck`, and then
-`npm test`, which is the release gate declared in `package.json`. Every check in
-the table below therefore blocks a deploy rather than depending on someone
-remembering to run it locally. The static export that ships is the same build
-the tests ran against.
-
-| Check | Command or test | Release expectation |
+| Check | Command or test | Pass condition |
 | --- | --- | --- |
-| Protected court files | `npm run verify:protected` | All 13 PDFs and the generator match locked SHA-256 values. |
-| Official form registry | `npm run verify:forms` | All registered court templates match their recorded hashes. |
-| Semantic source lint | `npm run lint` | No ESLint or JSX accessibility errors. |
-| Automated WCAG semantics (export) | `tests/axe-static.test.mjs` | Axe reports no WCAG A/AA violations on the rendered task-first start screen; contrast is tested separately because the static DOM has no layout engine. |
-| Automated WCAG semantics (client views) | `tests/axe-views.test.tsx` | Axe reports no WCAG A/AA violations on the court finder, the interview, the interview's validation-error state, filing steps, the glossary, and the open install dialog. The application is one URL, so these views never appear in the static export. |
-| Type safety | `npm run typecheck` | No TypeScript errors. |
-| Production static export | `npm run build:pages` | GitHub Pages export and offline cache complete. |
-| Rendered structure | `tests/rendered-html.test.mjs` | Task-first start screen, disclosure menu, labels, privacy notice, Peeka, and accessibility architecture are present. |
-| Stable chapter model | `tests/accessibility-model.test.mjs` | All state and fee-help routes map to five stable chapters and local progress counts. |
-| Keyboard/task smoke path | `tests/accessibility-interactions.test.tsx` | Menu disclosure/Escape/focus return, court-task selection, answer preservation, chapter progress, Peeka dismissal, and install-dialog Escape/focus return work in a DOM environment. |
-| Contrast tokens | `tests/color-contrast.test.mjs` | Every rendered text pairing meets 4.5:1 in both themes, and component borders meet the 3:1 non-text minimum. |
-| Conditional routing | `tests/wizard-routing.test.mjs` | Supported and blocked Washington, Oregon, Idaho, and Utah branches remain intact. |
+| Protected files | `npm run verify:protected` | The generator and 13 court PDFs match locked hashes. |
+| Form registry | `npm run verify:forms` | Every registered template matches its hash. |
+| Source lint | `npm run lint` | No ESLint or JSX accessibility errors. |
+| Export semantics | `tests/axe-static.test.mjs` | Axe finds no WCAG A/AA violations on the start screen. |
+| Client-view semantics | `tests/axe-views.test.tsx` | Axe finds no WCAG A/AA violations in the court finder, interview, validation state, filing steps, glossary, or install dialog. |
+| Types | `npm run typecheck` | No TypeScript errors. |
+| Static export | `npm run build:pages` | The Pages build and offline cache complete. |
+| Rendered structure | `tests/rendered-html.test.mjs` | Required navigation, labels, disclosures, privacy text, and accessibility features render. |
+| Progress model | `tests/accessibility-model.test.mjs` | Each route maps to five stable chapters with local progress counts. |
+| Keyboard smoke path | `tests/accessibility-interactions.test.tsx` | Menus, focus return, answer retention, progress, guide dismissal, and dialog controls work. |
+| Contrast | `tests/color-contrast.test.mjs` | Text pairs reach 4.5:1 in both themes; component borders reach 3:1. |
+| Routing | `tests/wizard-routing.test.mjs` | Supported and blocked routes remain intact. |
 
-## Criteria that automated tooling cannot assert
+Contrast is tested separately because jsdom does not calculate layout or the CSS cascade.
 
-These were reviewed against the source on August 10, 2026. They are recorded
-here because axe cannot evaluate them and a later change could silently break
-one without failing a test.
+## Source review
 
-| Criterion | Finding | Where |
+Reviewed August 10, 2026. These findings need human review because axe cannot establish them.
+
+| Criterion | Finding | Source |
 | --- | --- | --- |
-| 1.3.5 Identify Input Purpose (AA) | Met. Every field that collects information about the user and maps to one of the HTML autocomplete purposes sets a token. The remaining text fields collect court, case, birthplace, and household facts, which have no corresponding purpose and are correctly left untokenized. | `lib/wizard.ts` |
-| 2.4.2 Page Titled (A) | The document title now changes per view. The application is a single URL, so a static title would have described every screen. | `app/components/NavigatorApp.tsx` |
-| 2.4.11 Focus Not Obscured, Minimum (AA) | Met. `scroll-padding-top` on the scroll container plus `scroll-margin-top` on focus targets keeps focused controls clear of the sticky header. | `app/globals.css` |
-| 2.5.7 Dragging Movements (AA) | Not applicable. The interface has no drag interaction. | — |
-| 2.5.8 Target Size, Minimum (AA) | Met. The smallest interactive control is 28px, above the 24px floor. Verify again in a real browser after any control restyle. | `app/globals.css` |
-| 3.2.6 Consistent Help (A) | Met. The task navigation exposes the glossary in the same position on every view, and Peeka's dismissal is reversible from the same place. | `app/components/NavigatorApp.tsx` |
-| 3.3.7 Redundant Entry (A) | Met. No route collects the same fact twice. `dateOfBirth` is reached only on the Idaho and Utah birth-record step; `feeDateOfBirth` is reached only on the Oregon fee-waiver step, and Oregon has no birth-record step. Adding a generated fee-waiver route to Idaho or Utah would create a redundant entry and must prefill instead. | `lib/wizard.ts` |
-| 3.3.8 Accessible Authentication (AA) | Not applicable. There is no account or authentication step. | — |
+| 1.3.5 Identify Input Purpose | User fields use matching autocomplete tokens. Court, case, birthplace, and household fields have no applicable token. | `lib/wizard.ts` |
+| 2.4.2 Page Titled | Each client view sets a distinct document title. | `app/components/NavigatorApp.tsx` |
+| 2.4.11 Focus Not Obscured | Scroll padding and focus-target margins clear the sticky header. | `app/globals.css` |
+| 2.5.7 Dragging Movements | Not applicable; there is no drag interaction. | — |
+| 2.5.8 Target Size | The smallest control is 28px, above the 24px minimum. Recheck after restyling controls. | `app/globals.css` |
+| 3.2.6 Consistent Help | The glossary and reversible Peeka control stay in consistent navigation positions. | `app/components/NavigatorApp.tsx` |
+| 3.3.7 Redundant Entry | No route asks for the same fact twice. A future Idaho or Utah generated fee waiver must prefill the date of birth. | `lib/wizard.ts` |
+| 3.3.8 Accessible Authentication | Not applicable; there is no account or sign-in flow. | — |
 
-## Manual website checks before a conformance claim
+## Manual checks
 
-These checks must be completed on the deployed production URL. A code release may describe them as pending; it must not describe them as passed without dated evidence.
+Run these on the deployed site before claiming conformance. Record the date and evidence; do not report an untested item as passed.
 
-| Environment | Required checks | Status for August 9, 2026 release |
+| Environment | Check | August 2026 status |
 | --- | --- | --- |
-| iPhone Safari + VoiceOver | Menu, task cards, every question type, error links, Peeka disclosures, review editing, PDF creation status, downloads, install dialog | Pending independent manual test |
-| macOS Safari + VoiceOver | Landmarks, headings, form labels, progress announcements, result review, external-link names | Pending independent manual test |
-| Windows Firefox or Chrome + NVDA | Browse/focus modes, radio groups, selects, error recovery, dialog focus containment, result status | Pending independent manual test |
-| Keyboard only | Skip link; visible focus; Menu open/close/Escape; every control; review Edit actions; dialog Tab/Shift+Tab/Escape; no keyboard trap | Pending independent manual test |
-| Windows forced colors | Controls, selected states, progress, errors, links, Peeka eyes, and court card remain perceivable | Pending independent manual test |
-| 200% and 400% zoom | Reflow without two-dimensional scrolling; no clipped labels, errors, files, or actions | Pending independent manual test |
-| Reduced motion | No essential information depends on animation; motion is effectively removed | Pending independent manual test |
-| Disabled-user review | Task naming, court-finder comprehension, jargon, error recovery, and filing handoff | Pending facilitated user test |
+| iPhone Safari + VoiceOver | Menu, tasks, questions, errors, disclosures, review, generation status, downloads, install dialog | Pending |
+| macOS Safari + VoiceOver | Landmarks, headings, labels, progress, review, external links | Pending |
+| Windows Firefox or Chrome + NVDA | Browse and focus modes, groups, selects, errors, dialog focus, results | Pending |
+| Keyboard only | Skip link, focus, menus, controls, edit actions, dialog loop and Escape, traps | Pending |
+| Windows forced colors | Controls, selections, progress, errors, links, icon details, court card | Pending |
+| 200% and 400% zoom | Reflow, labels, errors, files, and actions | Pending |
+| Reduced motion | No essential information depends on motion | Pending |
+| Disabled-user review | Task names, court finder, jargon, errors, and filing handoff | Pending |
 
-## State and condition paths
+## Route coverage
 
-At minimum, exercise:
+- **Washington:** King County public and protected routes, other counties, fee help, notice blockers, and courthouse choices.
+- **Oregon:** name, legal-sex, and combined goals; disclosures; confidentiality program; attestation; fee help.
+- **Idaho:** adult name change, unsupported legal-sex goal, creditor blocker, fee-help link, and publication notice.
+- **Utah:** name, sex designation, combined goal, case and registry blockers, evidence statements, fee-help link, and court address.
+- **Shared:** validation, navigation, saved drafts, clear-all, offline use, stale sources, failures, downloads, sharing, and installation.
 
-- Washington: King County public route, confidential Superior Court route, non-King routing, fee help, protection-order/notice blockers, and each courthouse selection.
-- Oregon: name, legal-sex, and combined goals; public-interest disclosures; Address Confidentiality Program; treatment attestation; generated fee-help steps.
-- Idaho: adult name change; unsupported legal-sex goal; creditor certification blocker; official fee-help route; publication notice handoff.
-- Utah: name, sex-designation, and combined goals; other-case and registry blockers; evidence statements; official fee-help route; typed court-address field.
-- Shared states: empty required fields, invalid email/date/money/repeated rows, Back/Continue, saved draft restore, clear-all confirmation, offline transition, stale source date, generation failure, one-file result, multi-file result, share available/unavailable, and install dialog.
+## PDF accessibility
 
-## Generated-PDF gate
-
-Do not infer PDF accessibility from website accessibility. Before making a PDF conformance statement, separately test each output for document tags, title and language metadata, logical reading order, heading and table semantics, meaningful inserted-answer text, form-control labeling if controls remain, bookmarks where appropriate, color/contrast, zoom, and screen-reader reading order.
+Do not infer PDF accessibility from website results. Test each output for tags, title and language metadata, reading order, headings, tables, inserted-answer meaning, labels for any remaining controls, bookmarks, contrast, zoom, and screen-reader behavior.
