@@ -45,10 +45,10 @@ export interface NavigatorAnswers {
   signingCity?: string;
   signingDate?: string;
 
-  // Fee-waiver answers are deliberately excluded from saved drafts.
+  // Never save fee-waiver answers in drafts.
   feeDateOfBirth?: string;
 
-  // Oregon disclosures and legal-sex attestation.
+  // Oregon disclosures and sex-designation attestation.
   orChildSupport?: YesNo;
   orProtectionOrder?: YesNo;
   orSupervision?: YesNo;
@@ -74,7 +74,7 @@ export interface NavigatorAnswers {
   orFeeOtherExpenses?: string;
   orFeeOtherInfo?: string;
 
-  // Washington, King County District Court.
+  // King County, Washington.
   waRoute?: "district-public" | "superior-confidential";
   waCourthouse?: string;
   waSexOffender?: YesNo;
@@ -122,11 +122,11 @@ export interface NavigatorAnswers {
   waFeeOtherExpenseLines?: string;
   waFeeDebtLines?: string;
 
-  // Idaho adult name-change packet.
+  // Idaho.
   idSexOffender?: YesNo;
   idAvoidCreditors?: YesNo;
 
-  // Utah adult name or sex designation change.
+  // Utah.
   utOtherCases?: YesNo;
   utProbationParole?: YesNo;
   utSexOffender?: YesNo;

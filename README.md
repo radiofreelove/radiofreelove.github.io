@@ -1,45 +1,41 @@
 # Identity Navigator
 
-Identity Navigator is an installable, mobile-first PWA that guides an adult through a state-dependent questionnaire and fills versioned official court PDFs entirely in the browser. It does not file a case, sign for the user, or send questionnaire answers to an application server.
+Identity Navigator prepares official adult identity-change court forms in the browser. It does not upload answers, file a case, or sign for the user.
 
-## Current coverage
+## Coverage
 
-| State | Generated court route | Fee-waiver route | Deliberate routing limits |
+| State | Court forms | Fee help | Limits |
 | --- | --- | --- | --- |
-| Oregon | Statewide adult name, legal-sex, or combined OJD packet | Separate filled restricted-access OJD application and proposed order | Stops when the printed legal-sex attestation cannot be made |
-| Washington | King County District Court adult individual name petition | Separate filled KCDC motion and confidential financial statement | Other counties, legal-sex changes, confidential Superior Court cases, and special notice duties route to official help |
-| Idaho | Statewide adult name-change filing packet | Direct handoff to the current Court Assistance Office motion, affidavit, and order | Legal-sex changes and answers that conflict with the petition's sworn certification are not automated |
-| Utah | Statewide adult name, sex-designation, or combined packet | Direct handoff to Utah Courts and MyPaperwork | Expanded case/registry facts and unsatisfied evidence statements route to Utah Courts or MyPaperwork |
+| Oregon | Statewide adult name, legal-sex, and combined OJD packet | Separate restricted-access OJD application and proposed order | Stops when the legal-sex attestation cannot be made |
+| Washington | King County District Court adult individual name petition | Separate KCDC motion and confidential financial statement | Other counties, legal-sex changes, protected Superior Court cases, and special notice duties route to official help |
+| Idaho | Statewide adult name-change packet | Links to the Court Assistance Office motion, affidavit, and order | Legal-sex changes and answers that conflict with the sworn certification are not automated |
+| Utah | Statewide adult name, sex-designation, and combined packet | Links to Utah Courts and MyPaperwork | Expanded case or registry facts and unmet evidence statements route to official help |
 
-The release was reviewed against primary court sources on August 7, 2026. Oregon and King County source PDFs were downloaded again and matched the registered SHA-256 values; Idaho form revisions and Utah’s official process were rechecked on their current court pages. The bundled Utah PDF bytes were last checked August 1, 2026 because the court’s template endpoint was unavailable during the August 7 review. Generation stops after November 5, 2026 until the registry is reviewed and released again. See [the release audit](docs/release-audit-2026-08-07.md).
+Primary court sources were reviewed on August 7, 2026. Oregon and King County PDFs matched their registered SHA-256 values. Idaho revisions and Utah’s process were checked on their current court pages. Utah’s bundled PDFs retain an August 1, 2026 byte-check date because the template endpoint was unavailable on August 7.
 
-## Product behavior
+Generation stops after November 5, 2026 until the form registry is reviewed. See the [release audit](docs/release-audit-2026-08-07.md).
 
-- Builds questionnaire steps at runtime from residence state, county, requested change, and prior answers.
-- Displays exact official-source coverage and review dates alongside the questionnaire.
-- Hash-verifies every source PDF before filling or merging it.
-- Leaves signatures, filing dates, case numbers, hearing information, clerk fields, and judge-only decisions blank where appropriate.
-- Keeps answers in browser memory by default; saving a local draft is an explicit opt-in.
-- Never stores fee-waiver financial answers in a local draft, even when draft saving is enabled.
-- Keeps fee applications and confidential financial statements in separate downloads from the main petition.
-- Supports offline questionnaire use and PDF generation after installation.
-- Includes Android maskable icons, an install prompt, Web Share where supported, iOS home-screen metadata/instructions, safe-area spacing, responsive input modes, 44-pixel touch targets, dark mode, and larger text.
-- Uses task-first navigation, five stable progress chapters, linked error summaries, a dismissible plain-language Peeka guide, verified court cards or official-directory fallbacks, grouped HTML answer review, and a filing checklist.
-- Targets WCAG 2.2 Level AA for the website without claiming certified conformance. Generated-PDF accessibility remains a separate gate; see the [website accessibility test matrix](docs/accessibility-test-matrix.md).
+## Safeguards
 
-## Architecture
+- Verifies each source PDF before use.
+- Leaves signatures, filing dates, case numbers, hearings, clerk fields, and judicial decisions blank where required.
+- Keeps confidential or restricted financial documents separate from the petition.
+- Holds answers in browser memory unless the user saves a local draft.
+- Never saves fee-waiver financial answers in a draft.
+- Stops unsupported or stale routes and directs users to official help.
+- Supports offline use after installation.
+- Targets WCAG 2.2 Level AA for the website. PDF accessibility is a separate review; see the [accessibility test matrix](docs/accessibility-test-matrix.md).
 
-- `lib/jurisdictions.ts` — state adapters, counties, official authorities, review dates, form revisions, and SHA-256 values.
-- `lib/wizard.ts` — dynamic questions, validation, and conservative routing blockers.
-- `lib/accessibility.ts` — stable progress chapters, review grouping, and plain-language glossary.
-- `lib/court-directory.ts` — verified exact court details for supported selections; all other locations fall back to official directories.
-- `lib/pdf/generator.ts` — local official-PDF filling, overlay placement, merging, integrity checks, and separate waiver-file generation.
-- `app/components/NavigatorApp.tsx` — PWA UI, local draft controls, install behavior, and generation flow.
-- `public/forms/` — immutable, revisioned copies of official templates.
-- `public/sw.js` — offline shell and form cache; the build injects all hashed JS/CSS assets and a unique cache revision.
-- `docs/` — legal-currentness critique, official-form update runbook, and state-adapter guide.
+## Project map
 
-## Local development
+- `lib/jurisdictions.ts`: coverage, authorities, review dates, form revisions, and hashes
+- `lib/wizard.ts`: questions, validation, and routing stops
+- `lib/pdf/generator.ts`: local form filling, merging, and integrity checks
+- `app/components/NavigatorApp.tsx`: interface, drafts, installation, and downloads
+- `public/forms/`: versioned official templates
+- `docs/`: maintenance methods, test evidence, and release records
+
+## Develop
 
 Requires Node.js 22.13 or newer.
 
@@ -48,44 +44,40 @@ npm ci
 npm run dev
 ```
 
-## Free GitHub Pages deployment
-
-The repository includes a static-export build and a GitHub Actions workflow that
-automatically detects whether the site is hosted at a repository subpath. Follow
-[the complete GitHub Pages setup guide](GITHUB-PAGES-SETUP.md); no application
-files or court-form directories need to be created manually.
-
-To test the Pages build locally at the root path:
+Build for a root GitHub Pages site:
 
 ```bash
 npm run build:pages
 ```
 
-For a project repository named `identity-navigator`, use:
+For a project site such as `USERNAME.github.io/identity-navigator/`:
 
 ```bash
 NEXT_PUBLIC_BASE_PATH=/identity-navigator npm run build:pages
 ```
 
-The static site is written to `out/`. The build also writes `.nojekyll` and a
-revisioned service worker that precaches the application and every registered
-official PDF.
+The static export is written to `out/`. The build adds `.nojekyll` and creates a revisioned service worker for the app and registered PDFs.
 
-## Release checks
+## Validate
 
 ```bash
 npm test
 npm run lint
 npm run typecheck
-npm run verify:protected
 ```
 
-`npm test` verifies the locked generator and every court PDF byte-for-byte, verifies the form registry, builds the deployable worker, checks offline precaching, checks accessibility structure and contrast tokens, renders the application shell, and exercises the major state-routing branches. Before releasing a changed PDF adapter, also generate representative packets and visually inspect every rendered page as described in [the form-update runbook](docs/form-update-runbook.md).
+`npm test` checks protected files, form hashes, the Pages build, offline assets, accessibility, contrast, and state routing. Form-adapter changes also require page-by-page PDF review under the [form update runbook](docs/form-update-runbook.md).
 
-The maintenance-only `npm run qa:pdfs -- <output-directory>` command creates representative PDFs for every generated goal plus the Oregon and King County waiver flows.
+Create representative PDF samples with:
 
-## Legal maintenance
+```bash
+npm run qa:pdfs -- <output-directory>
+```
 
-Read [the legal-currentness methodology](docs/legal-currentness.md) before changing eligibility or routing. Official PDFs are never replaced in place: add a new revisioned directory, update the registry and coordinates, set a new review window, run all release checks, and complete page-by-page PDF QA. See [Adding a state](docs/adding-a-state.md) for the adapter contract.
+## Deploy and maintain
 
-Identity Navigator is document-assembly software, not legal advice. A qualified legal reviewer should approve material form, eligibility, confidentiality, notice, fee, or routing changes before deployment.
+Pushes to `main` deploy through GitHub Actions. See the [Pages setup guide](GITHUB-PAGES-SETUP.md) for initial repository settings.
+
+Read the [legal-currentness method](docs/legal-currentness.md) before changing eligibility or routing. Never replace an official PDF in place: add a versioned directory, update the registry and coordinates, set a new review window, run the release checks, and complete visual PDF QA.
+
+Identity Navigator is document-assembly software, not legal advice. Material form, eligibility, confidentiality, notice, fee, or routing changes require qualified legal review before release.

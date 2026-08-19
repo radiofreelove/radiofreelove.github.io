@@ -8,15 +8,8 @@ import axe from "axe-core";
 
 import NavigatorApp from "../app/components/NavigatorApp";
 
-// tests/axe-static.test.mjs audits the exported start screen only. Because the
-// application is a single URL that swaps views on the client, every screen past
-// that one — the interview, its validation-error state, the task screens, and
-// the install dialog — was previously unaudited. This renders each of them and
-// runs the same WCAG A/AA rule set against the live DOM.
-//
-// Contrast is excluded here for the same reason as the static test: jsdom has
-// no layout or cascade engine, so computed colors are not available.
-// tests/color-contrast.test.mjs covers the palette instead.
+// Scan client-only views; the static test covers the start screen.
+// jsdom cannot measure contrast, so color-contrast.test.mjs covers it.
 const AXE_OPTIONS = {
   runOnly: {
     type: "tag",
@@ -124,8 +117,7 @@ test("every client-rendered view is free of automated axe WCAG A/AA violations",
   );
   await scan("interview, first question");
 
-  // Continue with the required question unanswered so the linked error summary
-  // and the field-level error message are both in the DOM while axe runs.
+  // Leave the required field blank to expose both error messages.
   await click(buttonNamed("Continue"), "the Continue button");
   await scan("interview, validation error state");
 

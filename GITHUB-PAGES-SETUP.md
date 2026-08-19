@@ -1,61 +1,47 @@
-# Publish Identity Navigator with GitHub Pages
+# GitHub Pages deployment
 
-This package already contains the application source, official court-form PDFs,
-offline PWA builder, and GitHub Actions deployment workflow. You do **not** need
-to create `prepare-pages-pwa.mjs`, `generator.ts`, or any form directories by
-hand.
+Pushes to `main` run `.github/workflows/pages.yml`. The workflow validates the source, builds the static export, and deploys it to GitHub Pages.
 
-## What to upload
+## One-time setup
 
-Extract the ZIP on your computer first. Open the extracted
-`identity-navigator-github-pages-ready-2026-08-08` folder, then copy everything
-inside that folder into the root of your GitHub repository.
+1. Open **Settings → Pages** in the GitHub repository.
+2. Set **Source** to **GitHub Actions**.
+3. Open **Actions** and confirm that **Deploy Identity Navigator to GitHub Pages** completes successfully.
+4. Return to **Settings → Pages** for the public URL.
 
-Do not upload the ZIP itself: GitHub does not unpack ZIP files placed in a
-repository. Do not place the extracted project inside a second folder in the
-repository. At the repository root you should see `app`, `lib`, `public`,
-`scripts`, `.github`, `package.json`, and `README.md`.
+The workflow supports both account sites (`USERNAME.github.io`) and project sites (`USERNAME.github.io/REPOSITORY/`).
 
-## Easiest method: GitHub Desktop
+## Before release
 
-1. Install GitHub Desktop and sign in.
-2. Choose **File → Clone repository**, select the repository you already made,
-   and choose a local folder.
-3. Extract this package somewhere else on your computer.
-4. Copy the **contents** of the extracted project folder into the cloned
-   repository folder.
-5. Keep your existing `LICENSE`. If GitHub asks about your existing `README.md`
-   or third-party notice, compare them before replacing them; this package's
-   README contains the current coverage and audit details.
-6. Return to GitHub Desktop. Enter a summary such as
-   `Add Identity Navigator GitHub Pages PWA`, click **Commit to main**, and then
-   **Push origin**.
+Run:
 
-GitHub's browser uploader can also work, but GitHub Desktop is less error-prone
-for this many nested files and PDFs.
+```bash
+npm ci
+npm test
+npm run lint
+npm run typecheck
+```
 
-## Turn on Pages
+Then test the deployed site on a phone and desktop:
 
-1. Open the repository on GitHub.
-2. Choose **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-4. Open the **Actions** tab. The workflow named
-   **Deploy Identity Navigator to GitHub Pages** should be running.
-5. When both the `build` and `deploy` jobs show green checks, return to
-   **Settings → Pages** for the public URL.
+- Complete a supported questionnaire and open the downloaded PDF.
+- Test a fee-help route and confirm its document downloads separately.
+- Install the site, go offline, and confirm the questionnaire and forms still load.
 
-The workflow automatically handles both ordinary project URLs such as
-`https://USERNAME.github.io/REPOSITORY/` and account-site repositories named
-`USERNAME.github.io`.
+The current source review is recorded in `docs/release-audit-2026-08-07.md`. Generation stops after November 5, 2026 until the registry is reviewed.
 
-## Before sharing the URL
+## Local Pages build
 
-Open the site on a phone and a desktop computer. Complete at least one supported
-questionnaire path, generate its PDF, and confirm that the downloaded PDF opens.
-Also test the fee-waiver path. Then install or add the site to the home screen,
-turn off the network, reopen it, and confirm that the questionnaire and bundled
-forms remain available.
+For an account site:
 
-This release's legal/form audit is documented in
-`docs/release-audit-2026-08-07.md`. The built-in review window stops generation
-after November 5, 2026 until the form registry is reviewed and released again.
+```bash
+npm run build:pages
+```
+
+For a project site:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/REPOSITORY npm run build:pages
+```
+
+The deployable site is written to `out/`.

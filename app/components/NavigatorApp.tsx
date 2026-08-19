@@ -1125,9 +1125,7 @@ export default function NavigatorApp() {
     generationErrorRef.current?.focus();
   }, [generationError]);
 
-  // The application is a single URL, so the static document title would
-  // otherwise describe every view. Screen-reader and tab-list users rely on the
-  // title to tell these views apart (WCAG 2.4.2).
+  // Give each client view a distinct title (WCAG 2.4.2).
   useEffect(() => {
     if (!hydrated) return;
     document.title = `${VIEW_TITLES[view]} — Identity Navigator`;

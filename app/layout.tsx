@@ -17,7 +17,6 @@ export const metadata: Metadata = {
     telephone: false,
   },
   other: {
-    "codex-preview": "development",
     "mobile-web-app-capable": "yes",
   },
   icons: {

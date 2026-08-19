@@ -374,9 +374,7 @@ function setText(
       if (/phone|telephone/i.test(name)) {
         output = output.slice(0, maxLength);
       } else {
-        // The official Idaho fields use short legacy MaxLen values. The
-        // finished PDFs are flattened, so safely expand the field long enough
-        // to preserve a person's complete legal name or address.
+        // Idaho's legacy limits are safe to expand because output is flattened.
         field.setMaxLength(output.length);
       }
     }
@@ -436,10 +434,7 @@ async function mergeDocuments(documents: PDFDocument[]) {
 }
 
 function setMetadata(doc: PDFDocument, title: string, state: string) {
-  // Generated packets are intentionally non-interactive. Removing the empty
-  // AcroForm dictionary and annotations after flattening avoids viewer-specific
-  // widget artifacts and ensures no signature/court field can be mistaken for
-  // a place the app completed.
+  // Strip inactive controls so blank court fields cannot look completed.
   doc.catalog.delete(PDFName.of("AcroForm"));
   doc.getPages().forEach((page) => page.node.delete(PDFName.of("Annots")));
   doc.setTitle(title);
@@ -891,9 +886,7 @@ const UTAH_CHECKBOX_INSET_X = 3.25;
 const UTAH_CHECKBOX_INSET_Y = 1.5;
 
 function markUtah(page: PDFPage, left: number, bottom: number) {
-  // Utah's checkboxes are printed as bracket pairs rather than form fields.
-  // Draw the X from the measured outer bounds so every mark is centered,
-  // independent of font bearings and baseline placement.
+  // Center marks within Utah's printed checkbox brackets.
   const x0 = left + UTAH_CHECKBOX_INSET_X;
   const x1 = left + UTAH_CHECKBOX_WIDTH - UTAH_CHECKBOX_INSET_X;
   const y0 = bottom + UTAH_CHECKBOX_INSET_Y;
@@ -1188,8 +1181,7 @@ async function generateOregonFeeWaiver(
     a.orFeeOtherExpenses,
   ]);
 
-  // Application page 1: match the identity-change caption and request only
-  // the filing fee. Case number and all signature/date fields remain blank.
+  // Leave case, date, and signature fields blank.
   drawFit(application, a.county?.toUpperCase(), 300, 695, 122, font, 8);
   drawFit(application, applicant, 72, 667, 225, font, 8);
   drawFit(application, a.currentFirst, 176, 578, 130, font, 8);
@@ -1207,8 +1199,7 @@ async function generateOregonFeeWaiver(
   markBox(application, 98.1, 474.12, 10.26, 10.26);
   markBox(application, 177.66, 474.12, 10.26, 10.26);
 
-  // Declaration page 2. The SSN line intentionally stays blank because the
-  // official form labels that disclosure voluntary.
+  // Leave the optional Social Security number blank.
   drawFit(declaration, formatDate(a.feeDateOfBirth), 220, 675, 190, font, 8);
   drawFit(declaration, a.orFeeStateId, 325, 656, 170, font, 8);
   drawFit(declaration, a.orFeeHouseholdSize, 307, 603, 75, font, 8);
@@ -1274,9 +1265,7 @@ async function generateOregonFeeWaiver(
   drawFit(expenses, cityStateZip(a), 252, 291, 170, font, 8);
   drawFit(expenses, a.phone, 435, 291, 105, font, 8);
 
-  // Proposed order: populate only the caption, applicant, requested fee, and
-  // submitter contact. Every finding, outcome, payment plan, and judge field
-  // below "The court finds Applicant" remains untouched.
+  // Leave findings, payment terms, and judge fields blank.
   drawFit(order, a.county?.toUpperCase(), 300, 695, 122, font, 8);
   drawFit(order, applicant, 72, 668, 225, font, 8);
   drawFit(order, applicant, 182, 569, 330, font, 8);
