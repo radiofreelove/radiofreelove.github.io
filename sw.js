@@ -1,6 +1,6 @@
 /* Built by prepare-pages-pwa.mjs. Edit the script, not out/sw.js. */
 const CACHE_PREFIX = "identity-navigator-pages-";
-const CACHE_NAME = CACHE_PREFIX + "63bdd02a31b644f6";
+const CACHE_NAME = CACHE_PREFIX + "197dbc6a14d5bcd5";
 const APP_SHELL = "/index.html";
 const PRECACHE_URLS = [
   "/",
@@ -9,19 +9,19 @@ const PRECACHE_URLS = [
   "/__next._head.txt",
   "/__next._index.txt",
   "/__next._tree.txt",
+  "/_next/static/3Rn9ZSIKD7gmMTS952Oec/_buildManifest.js",
+  "/_next/static/3Rn9ZSIKD7gmMTS952Oec/_clientMiddlewareManifest.js",
+  "/_next/static/3Rn9ZSIKD7gmMTS952Oec/_ssgManifest.js",
   "/_next/static/chunks/03~yq9q893hmn.js",
   "/_next/static/chunks/07lhk_q6pmm3r.js",
   "/_next/static/chunks/0dbhjjzl8qfwv.js",
-  "/_next/static/chunks/0fppmf7l_oo6s.js",
+  "/_next/static/chunks/0df_h782vnlbz.js",
   "/_next/static/chunks/0ht900cau6_ur.js",
   "/_next/static/chunks/0qffl5w7_9w~q.js",
   "/_next/static/chunks/0t2z5hkh7v~~b.js",
+  "/_next/static/chunks/0ti3i370p9v8f.js",
   "/_next/static/chunks/0tuhh.o4mae2_.css",
-  "/_next/static/chunks/0uhptxtmge6zk.js",
   "/_next/static/chunks/turbopack-0cek.dh0dqtgy.js",
-  "/_next/static/Mg6sFDgcT6ZDfOQWUzgp5/_buildManifest.js",
-  "/_next/static/Mg6sFDgcT6ZDfOQWUzgp5/_clientMiddlewareManifest.js",
-  "/_next/static/Mg6sFDgcT6ZDfOQWUzgp5/_ssgManifest.js",
   "/_not-found/__next._full.txt",
   "/_not-found/__next._head.txt",
   "/_not-found/__next._index.txt",
