@@ -1,6 +1,6 @@
 # The Prismatic Project
 
-The Prismatic Project prepares official adult identity-change court forms in the browser. It does not upload answers, file a case, or sign for the user.
+The Prismatic Project prepares official adult identity-change court forms, and Oregon birth-record paperwork, in the browser. It does not upload answers, file a case, or sign for the user.
 
 ## Coverage (Oregon-first prototype)
 
@@ -11,6 +11,16 @@ This branch is a prototype rebuild focused on Oregon only. Washington, Idaho, an
 | Oregon | Statewide Circuit Court adult name change, legal-sex change, or combined packet, plus the statewide fee deferral/waiver packet | Official OJD court directory, ORS 33.410/33.460 statutes, and the 2026 fee schedule | Child cases, non-Oregon addresses, and registry-related disclosures route to official help instead of forms |
 
 Both bundled Oregon PDFs were downloaded from courts.oregon.gov and byte-checked against the registry on October 24, 2026. That check confirms the files are current copies of the official packets; it is not a legal review of their contents. Generation stops after January 22, 2027 until the form registry is re-checked. A weekly automated workflow re-hashes the official sources and opens an issue if they drift.
+
+## Birth record paperwork (Oregon Health Authority)
+
+One module, two entry points: "I already have a court judgment" and "administrative process". Both fill OHA's own PDFs on the device: form 2673 (administrative), form 45-17A (the amendment order form, with fees), and OHA's court-order name-change request. A short list points to Oregon DMV, Social Security, and the State Department as separate steps. It generates nothing for passports or federal sex markers, collects no Social Security number, takes no uploads, and contacts no agency. Answers are never saved to drafts.
+
+- Front end: each step has a few numbered source links. The glossary explains the records words, with sources.
+- Back end: every claim, with exact quotations, access dates, and the unresolved items, is in [docs/birth-record-module-evidence.md](docs/birth-record-module-evidence.md).
+- Stops, not guesses: a prior court-ordered amendment, a non-Oregon birth, and non-adult-self applicants stop with an explanation instead of a form.
+- Review-by date: December 31, 2026, tied to OHA's proposed January 1, 2027 rule changes. Generation for this module stops after that date until the sources are re-checked. This is a checkpoint, not a statement that anything will change.
+- OHA says it cannot guarantee other agencies will accept an amended certificate, and some may require a court order.
 
 ## Safeguards
 
@@ -27,7 +37,9 @@ Both bundled Oregon PDFs were downloaded from courts.oregon.gov and byte-checked
 
 - `lib/jurisdictions.ts`: coverage, authorities, review dates, form revisions, and hashes
 - `lib/wizard.ts`: questions, validation, and routing stops
-- `lib/pdf/generator.ts`: local form filling, merging, and integrity checks
+- `lib/pdf/generator.ts`: local form filling, merging, and integrity checks (court packets; protected file)
+- `lib/records-data.ts`, `lib/records.ts`, `lib/pdf/records.ts`, `app/components/RecordsFlow.tsx`: the birth-record module (sources, routing and fees, PDF filling, interface)
+- `docs/birth-record-module-evidence.md`: per-claim sources for the module
 - `app/components/NavigatorApp.tsx`: interface, drafts, installation, and downloads
 - `public/forms/`: versioned official templates
 - `docs/`: maintenance methods, test evidence, and release records
@@ -108,6 +120,7 @@ The Prismatic Project is document-assembly software, not legal advice, and the p
 - The Oregon State Bar's Formal Ethics Opinion No 2005-137 (2016 revision) states that self-help legal software, run locally or online, "simply is not the practice of law" when customers clearly receive no human interaction. The opinion is advisory and binds no court; no Oregon appellate decision addressing software- or website-based document assembly was identified in this review. Details and sources: [docs/court-tool-comparison.md](docs/court-tool-comparison.md).
 - The Oregon State Bar's UPL page says a non-licensee who "drafts or selects legal documents" for others may be engaged in the unlawful practice of law, and its FAQ cautions that its not-UPL list is not exhaustive and that no money needs to change hands. The project does not treat any of these authorities as clearance.
 - No completed qualified legal review is documented in the project materials reviewed, and the site's early-release banner states that legal review is still in progress.
+- The same reasoning is used for the birth-record module: stored questions, OHA's own forms, no human interaction. No additional on-point advisory opinion was found for it; see section 4 of [docs/court-tool-comparison.md](docs/court-tool-comparison.md). The module does not claim legal clearance.
 
 Design choices intended to respect the boundary: only the court's official forms, used verbatim and hash-verified; the user's own answers fill the court's blanks; no new legal language is drafted; no human interaction or personalized assistance anywhere in the flow; signatures, case numbers, clerk fields, and judicial findings stay blank; unsupported routes stop and point to official help. These are engineering choices, not a legal conclusion.
 
