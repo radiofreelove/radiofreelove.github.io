@@ -1,0 +1,40 @@
+# Legal-currentness method
+
+Identity Navigator assembles documents and routes unsupported cases. It does not give legal advice or file cases. When the guided flow lacks a required fact or notice, generation stops and points to an official source.
+
+## Why coverage is narrow
+
+| Issue | Current approach |
+| --- | --- |
+| Filing location | Residence and birthplace are separate because they serve different legal functions. |
+| Washington forms | Name-change forms are local. Only the King County adult individual District Court petition is generated. |
+| Oregon confidentiality | Every petition that includes a legal-sex change is treated as confidential under the July 2026 OJD packet. |
+| Utah requirements | The adapter follows the current 1158XX, 1730FA, and 1731FA forms rather than older checklist language. |
+| Fees and procedure | Amounts and process details are source-linked and date-stamped. |
+| Fee help | Oregon and King County forms are prepared separately. Idaho and Utah route to their official sworn-financial processes. |
+
+## Release controls
+
+1. **Use primary sources.** Court forms, court self-help pages, statutes, and official fee schedules control release status.
+2. **State exact coverage.** Each adapter identifies what it prepares and where it stops.
+3. **Version every form.** Registry entries include source, revision, verification date, and SHA-256 value.
+4. **Verify before use.** A hash mismatch stops generation.
+5. **Expire stale reviews.** Generation stops after `REVIEW_BY`, including offline use.
+6. **Route unsupported facts.** Local variation, registry, supervision, notice, case-history, age, and confidentiality issues go to official help when not modeled.
+7. **Reserve human decisions.** Signature, filing, hearing, clerk, service, and judicial fields remain blank where required.
+8. **Minimize data.** The app asks only for required facts, sends no answers to a server, and saves drafts only by opt-in. Fee-waiver financial data is never saved.
+9. **Separate confidential records.** Restricted applications and confidential financial statements are separate downloads.
+
+## Review cycle
+
+Review each jurisdiction at least every 90 days and after any known change to a statute, rule, fee, form, or court process. Qualified legal review is required for material routing or eligibility changes.
+
+
+## Birth-record module
+
+The Oregon Health Authority birth-record module has its own dates, because the forms, fees, and rules belong to a different agency than the court packets.
+
+- Dates and form hashes: `lib/records-data.ts` (`RECORDS_REVIEWED_ON` October 26, 2026; `RECORDS_REVIEW_BY` December 31, 2026). Generation stops after the review-by date, including offline.
+- Why December 31: OHA's September 2026 proposed rules take effect January 1, 2027 if adopted as planned. The proposal repeals OAR 333-011-0275 and amends 333-011-0265 and 333-011-0340. The text read keeps the fee amounts the same. OAR 333-011-0271 to -0273 are not in the proposal. The date is a prompt to re-read the sources after final filing.
+- Per-claim sources and open items: [birth-record-module-evidence.md](birth-record-module-evidence.md).
+- Re-check list when the date arrives: OAR 333-011-0271, -0272, -0273, -0275/-0274, -0340; forms 2673, 45-17A, 45-13A, court-order name request (revision labels and hashes); OHA gender-identity and change-a-record pages; DMV and Social Security pages; State Department sex-marker page.
